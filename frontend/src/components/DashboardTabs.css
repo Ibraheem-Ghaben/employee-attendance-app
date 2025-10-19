@@ -1,0 +1,136 @@
+.dashboard-tabs-layout {
+  display: flex;
+  min-height: 100vh;
+  background: #f5f6fa;
+}
+
+.dashboard-tabs-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Header */
+.tabs-header {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 15px 25px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: #fff;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.menu-toggle {
+  background: rgba(255, 255, 255, 0.2);
+  border: none;
+  color: #fff;
+  font-size: 24px;
+  cursor: pointer;
+  padding: 10px 15px;
+  border-radius: 6px;
+  transition: all 0.2s;
+}
+
+.menu-toggle:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.header-title h1 {
+  font-size: 24px;
+  margin: 0;
+  font-weight: 700;
+}
+
+.header-subtitle {
+  font-size: 14px;
+  opacity: 0.9;
+  display: block;
+  margin-top: 4px;
+}
+
+/* Tabs Navigation */
+.tabs-navigation {
+  display: flex;
+  gap: 5px;
+  padding: 0 20px;
+  background: #fff;
+  border-bottom: 2px solid #e9ecef;
+  overflow-x: auto;
+}
+
+.tab-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 15px 25px;
+  background: none;
+  border: none;
+  border-bottom: 3px solid transparent;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  color: #666;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.tab-button:hover {
+  background: #f8f9fa;
+  color: #4472c4;
+}
+
+.tab-button.active {
+  color: #4472c4;
+  border-bottom-color: #4472c4;
+  background: #f8f9fa;
+}
+
+.tab-icon {
+  font-size: 18px;
+}
+
+.tab-label {
+  font-size: 14px;
+}
+
+@media (max-width: 768px) {
+  .tab-button {
+    padding: 12px 15px;
+  }
+  
+  .tab-label {
+    display: none;
+  }
+  
+  .tab-icon {
+    font-size: 20px;
+  }
+}
+
+/* Tab Content */
+.tab-content {
+  flex: 1;
+  overflow-y: auto;
+  background: #f5f6fa;
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+  .tabs-header {
+    padding: 12px 15px;
+  }
+  
+  .header-title h1 {
+    font-size: 18px;
+  }
+  
+  .header-subtitle {
+    font-size: 12px;
+  }
+  
+  .tabs-navigation {
+    padding: 0 10px;
+  }
+}
+

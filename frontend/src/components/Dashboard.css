@@ -499,3 +499,32 @@ tbody td {
     min-width: 700px;
   }
 }
+
+/* Dashboard Content Only (when used inside tabs) */
+.dashboard-content-only {
+  padding: 20px;
+  width: 100%;
+}
+
+.dashboard-actions {
+  margin-bottom: 20px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.dashboard-actions .btn-export {
+  padding: 10px 20px;
+  background: #28a745;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  transition: all 0.2s;
+}
+
+.dashboard-actions .btn-export:hover {
+  background: #218838;
+  box-shadow: 0 2px 8px rgba(40, 167, 69, 0.3);
+}

@@ -37,12 +37,9 @@ const Dashboard: React.FC = () => {
       fetchEmployees();
       fetchSites();
       fetchStatistics();
-    } else {
-      // Employees see their profile
-      navigate('/profile');
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentPage, pageSize, user, navigate]);
+  }, [currentPage, pageSize, user]);
 
   const fetchEmployees = async () => {
     try {
@@ -163,28 +160,16 @@ const Dashboard: React.FC = () => {
   const hasActiveFilters = employeeCode || employeeName || site || inOutMode || startDate || endDate;
 
   return (
-    <div className="dashboard-layout">
-      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-      
-      <div className="dashboard-main">
-        <div className="dashboard-topbar">
-          <button className="menu-toggle" onClick={() => setSidebarOpen(!sidebarOpen)}>
-            ☰
-          </button>
-          <div className="topbar-title">
-            <h1>Attendance Dashboard</h1>
-            <span className="topbar-subtitle">MSS Company Management System</span>
-          </div>
-          <div className="topbar-actions">
-            <button onClick={handleExport} className="btn btn-export">
-              📊 Export
-            </button>
-          </div>
-        </div>
+    <div className="dashboard-content-only">
+      {/* Export Button */}
+      <div className="dashboard-actions">
+        <button onClick={handleExport} className="btn btn-export">
+          📊 Export to Excel
+        </button>
+      </div>
 
-        <div className="dashboard-content">
-          {/* Statistics Cards */}
-          <StatisticsCards stats={statistics} loading={statsLoading} />
+      {/* Statistics Cards */}
+      <StatisticsCards stats={statistics} loading={statsLoading} />
 
           {/* Filters Section */}
           <div className="filters-section">
@@ -390,8 +375,6 @@ const Dashboard: React.FC = () => {
               </button>
             </div>
           )}
-        </div>
-      </div>
     </div>
   );
 };
