@@ -5,6 +5,7 @@ import employeeRoutes from './routes/employeeRoutes';
 import authRoutes from './routes/authRoutes';
 import profileRoutes from './routes/profileRoutes';
 import exportRoutes from './routes/exportRoutes';
+import adminRoutes from './routes/adminRoutes';
 import overtimeRoutes from './routes/overtimeRoutes';
 import { closeConnection } from './config/database';
 import { closeLocalConnection } from './config/localDatabase';
@@ -30,6 +31,7 @@ app.use((req, res, next) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/profile', profileRoutes);
 app.use('/api/export', exportRoutes);
+app.use('/api/admin', adminRoutes);
 app.use('/api/overtime', overtimeRoutes);
 app.use('/api', employeeRoutes);
 

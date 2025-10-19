@@ -127,7 +127,7 @@ export class TimesheetService {
       const isWeekend = overtimeCalculationService.isWeekendDay(date, config.weekend_days);
       const dayOfWeek = overtimeCalculationService.getDayName(date);
 
-      // Create/update timesheet day
+      // Create/update timesheet day (preserve admin_manual/admin_adjusted fields)
       const timesheetDay: Partial<TimesheetDay> = {
         employee_code: employeeCode,
         work_date: dateStr,
@@ -153,6 +153,10 @@ export class TimesheetService {
 
       // Upsert to database
       if (existing) {
+        // If admin-manual/adjusted, do not overwrite minutes and pay
+        if (existing.ot_entry_mode && (existing as any).ot_entry_mode !== 'auto') {
+          return existing;
+        }
         await this.updateTimesheetDay(existing.id!, timesheetDay);
         return { ...existing, ...timesheetDay } as TimesheetDay;
       } else {

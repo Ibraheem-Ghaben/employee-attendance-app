@@ -9,7 +9,7 @@ import { getTimesheetDays, calculateEmployeeTimesheets } from '../services/overt
 import './WeeklyCalendar.css';
 
 interface WeeklyCalendarProps {
-  employeeCode: string;
+  employeeCode?: string;
   isAdmin: boolean;
 }
 
@@ -21,8 +21,10 @@ const WeeklyCalendar: React.FC<WeeklyCalendarProps> = ({ employeeCode, isAdmin }
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    // If admin without employee selected, skip load until employee is chosen
+    if (isAdmin && !employeeCode) return;
     loadWeekData();
-  }, [currentWeekStart, employeeCode]);
+  }, [currentWeekStart, employeeCode, isAdmin]);
 
   function getWeekStart(date: Date): Date {
     const d = new Date(date);
@@ -137,7 +139,7 @@ const WeeklyCalendar: React.FC<WeeklyCalendarProps> = ({ employeeCode, isAdmin }
     <div className="weekly-calendar">
       <div className="calendar-header">
         <h2>Weekly Timesheet</h2>
-        <p className="employee-code">Employee: {employeeCode}</p>
+        {employeeCode && <p className="employee-code">Employee: {employeeCode}</p>}
       </div>
 
       {error && <div className="alert alert-error">{error}</div>}
@@ -167,8 +169,10 @@ const WeeklyCalendar: React.FC<WeeklyCalendarProps> = ({ employeeCode, isAdmin }
         )}
       </div>
 
-      {/* Calendar Grid */}
-      {loading ? (
+      {/* Require employee selection for admin */}
+      {isAdmin && !employeeCode ? (
+        <div className="calendar-loading">Select an employee to view calendar.</div>
+      ) : loading ? (
         <div className="calendar-loading">Loading week data...</div>
       ) : (
         <div className="calendar-grid">
