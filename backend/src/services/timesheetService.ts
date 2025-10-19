@@ -160,7 +160,9 @@ export class TimesheetService {
         await this.updateTimesheetDay(existing.id!, timesheetDay);
         return { ...existing, ...timesheetDay } as TimesheetDay;
       } else {
-        return await this.insertTimesheetDay(timesheetDay);
+        const inserted = await this.insertTimesheetDay(timesheetDay);
+        await pool.close();
+        return inserted;
       }
     } catch (error) {
       console.error(`Error calculating day ${dateStr} for ${employeeCode}:`, error);
@@ -182,7 +184,7 @@ export class TimesheetService {
       } else {
         await this.insertTimesheetDay(errorDay);
       }
-
+      await pool.close();
       throw error;
     }
   }
@@ -245,7 +247,9 @@ export class TimesheetService {
           WHERE employee_code = @employeeCode AND work_date = @workDate
         `);
 
-      return result.recordset[0] || null;
+    const day = result.recordset[0] || null;
+    await pool.close();
+    return day;
     } catch (error) {
       console.error('Error getting timesheet day:', error);
       throw error;

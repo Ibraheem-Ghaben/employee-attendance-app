@@ -89,6 +89,7 @@ export class EmployeeProfileService {
       query += ' ORDER BY record.punch_time DESC';
 
       const result = await request.query(query);
+      await pool.close();
 
       return result.recordset as EmployeeAttendanceRecord[];
     } catch (error) {
@@ -168,6 +169,7 @@ export class EmployeeProfileService {
       `;
 
       const result = await pool.request().query(query);
+      await pool.close();
 
       return result.recordset as EmployeeProfile[];
     } catch (error) {

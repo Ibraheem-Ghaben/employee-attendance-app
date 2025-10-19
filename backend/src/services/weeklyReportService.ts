@@ -84,6 +84,7 @@ export class WeeklyReportService {
         summaries.push(summary);
       }
 
+      await pool.close();
       return summaries;
     } catch (error) {
       console.error('Error generating weekly report:', error);
