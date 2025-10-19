@@ -55,8 +55,11 @@ const WeeklyCalendar: React.FC<WeeklyCalendarProps> = ({ employeeCode, isAdmin }
 
       const fromDate = formatDate(currentWeekStart);
       const toDate = formatDate(weekEnd);
-
-      const days = await getTimesheetDays(employeeCode, fromDate, toDate);
+      if (!employeeCode) {
+        setTimesheetDays([]);
+        return;
+      }
+      const days = await getTimesheetDays(employeeCode as string, fromDate, toDate);
       setTimesheetDays(days);
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to load timesheet data');
