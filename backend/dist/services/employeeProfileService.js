@@ -144,7 +144,7 @@ class EmployeeProfileService {
     /**
      * Get all attendance records with pagination (Admin/Supervisor view)
      */
-    async getAllAttendanceRecords(page = 1, pageSize = 50, employeeCode, startDate, endDate) {
+    async getAllAttendanceRecords(page = 1, pageSize = 50, employeeCode, startDate, endDate, employeeName, site, inOutMode) {
         try {
             const pool = await (0, database_1.getConnection)();
             const offset = (page - 1) * pageSize;
@@ -158,6 +158,20 @@ class EmployeeProfileService {
             if (employeeCode) {
                 whereClause += ' AND employee.Employee_Code = @employeeCode';
                 request.input('employeeCode', database_1.sql.VarChar, employeeCode);
+            }
+            if (employeeName) {
+                whereClause += ` AND (employee.Employee_Name_1_English LIKE @employeeName 
+                             OR employee.Employee_Name_1_Arabic LIKE @employeeName
+                             OR employee.first_Last_name_eng LIKE @employeeName)`;
+                request.input('employeeName', database_1.sql.VarChar, `%${employeeName}%`);
+            }
+            if (site) {
+                whereClause += ` AND (employee.Site_1_English = @site OR employee.Site_1_Arabic = @site)`;
+                request.input('site', database_1.sql.VarChar, site);
+            }
+            if (inOutMode !== undefined && inOutMode !== '') {
+                whereClause += ' AND record.InOutMode = @inOutMode';
+                request.input('inOutMode', database_1.sql.Int, parseInt(inOutMode));
             }
             if (startDate) {
                 whereClause += ' AND record.punch_time >= @startDate';
@@ -266,6 +280,75 @@ class EmployeeProfileService {
         }
         catch (error) {
             console.error('Error fetching attendance for export:', error);
+            throw error;
+        }
+    }
+    /**
+     * Get unique sites from MSS_TA database
+     */
+    async getUniqueSites() {
+        try {
+            const pool = await (0, database_1.getConnection)();
+            const query = `
+        SELECT DISTINCT Site_1_English
+        FROM [Laserfiche].[dbo].[Laserfiche]
+        WHERE Company_Code = 'MSS' 
+          AND Branch_Code = 'MSS'
+          AND Site_1_English IS NOT NULL
+          AND Site_1_English != ''
+        ORDER BY Site_1_English
+      `;
+            const result = await pool.request().query(query);
+            return result.recordset.map((row) => row.Site_1_English);
+        }
+        catch (error) {
+            console.error('Error fetching unique sites:', error);
+            throw error;
+        }
+    }
+    /**
+     * Get dashboard statistics from MSS_TA database
+     */
+    async getDashboardStatistics(employeeCode, startDate, endDate) {
+        try {
+            const pool = await (0, database_1.getConnection)();
+            let whereClause = `
+        WHERE employee.Company_Code = 'MSS' 
+          AND employee.Branch_Code = 'MSS' 
+          AND record.clock_id = 3
+      `;
+            const request = pool.request();
+            if (employeeCode) {
+                whereClause += ' AND employee.Employee_Code = @employeeCode';
+                request.input('employeeCode', database_1.sql.VarChar, employeeCode);
+            }
+            if (startDate) {
+                whereClause += ' AND record.punch_time >= @startDate';
+                request.input('startDate', database_1.sql.DateTime, new Date(startDate));
+            }
+            if (endDate) {
+                whereClause += ' AND record.punch_time <= @endDate';
+                request.input('endDate', database_1.sql.DateTime, new Date(endDate));
+            }
+            const query = `
+        SELECT 
+          COUNT(*) as totalRecords,
+          COUNT(DISTINCT employee.Employee_Code) as totalEmployees,
+          SUM(CASE WHEN record.InOutMode = 0 THEN 1 ELSE 0 END) as totalCheckIns,
+          SUM(CASE WHEN record.InOutMode = 1 THEN 1 ELSE 0 END) as totalCheckOuts,
+          COUNT(DISTINCT employee.Site_1_English) as totalSites,
+          MAX(record.punch_time) as lastPunchTime,
+          MIN(record.punch_time) as firstPunchTime
+        FROM [Laserfiche].[dbo].[Laserfiche] as employee
+        LEFT JOIN [MSS_TA].[dbo].[final_attendance_records] as record
+          ON record.EnrollNumber = employee.Card_ID
+        ${whereClause}
+      `;
+            const result = await request.query(query);
+            return result.recordset[0];
+        }
+        catch (error) {
+            console.error('Error fetching dashboard statistics:', error);
             throw error;
         }
     }

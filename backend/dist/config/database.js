@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.sql = exports.closeConnection = exports.getConnection = void 0;
+exports.sql = exports.closeLocalConnection = exports.getLocalConnection = exports.closeConnection = exports.getConnection = void 0;
 const mssql_1 = __importDefault(require("mssql"));
 exports.sql = mssql_1.default;
 const dotenv_1 = __importDefault(require("dotenv"));
@@ -71,3 +71,7 @@ const closeConnection = async () => {
     }
 };
 exports.closeConnection = closeConnection;
+// Also export getLocalConnection for convenience
+var localDatabase_1 = require("./localDatabase");
+Object.defineProperty(exports, "getLocalConnection", { enumerable: true, get: function () { return localDatabase_1.getLocalConnection; } });
+Object.defineProperty(exports, "closeLocalConnection", { enumerable: true, get: function () { return localDatabase_1.closeLocalConnection; } });

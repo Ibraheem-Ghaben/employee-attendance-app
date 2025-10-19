@@ -117,10 +117,10 @@ export class TimesheetService {
       const calculation = overtimeCalculationService.calculate(date, spans, config);
       
       // Get first/last punch times
-      const first_punch_in = punches.find((p) => p.punch_type === 'IN')?.punch_time;
+      const first_punch_in = punches.find((p) => p.punch_type === 'IN')?.punch_time || undefined;
       const last_punch_out = punches
         .filter((p) => p.punch_type === 'OUT')
-        .pop()?.punch_time;
+        .pop()?.punch_time || undefined;
       
       // Determine rates used
       const rates = overtimeCalculationService.calculateRates(config);
@@ -133,8 +133,8 @@ export class TimesheetService {
         work_date: dateStr,
         is_weekend: isWeekend,
         day_of_week: dayOfWeek,
-        first_punch_in: first_punch_in || null,
-        last_punch_out: last_punch_out || null,
+        first_punch_in: first_punch_in,
+        last_punch_out: last_punch_out,
         total_worked_minutes: overtimeCalculationService.totalWorkedMinutes(spans),
         regular_minutes: calculation.regular_minutes,
         weekday_ot_minutes: calculation.weekday_ot_minutes,
@@ -147,7 +147,7 @@ export class TimesheetService {
         hourly_rate_weekday_ot: rates.weekday_ot,
         hourly_rate_weekend_ot: rates.weekend_ot,
         is_calculated: true,
-        calculation_error: null,
+        calculation_error: undefined,
         calculated_at: new Date(),
       };
 

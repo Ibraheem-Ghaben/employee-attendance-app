@@ -4,8 +4,8 @@
  */
 
 import express, { Request, Response } from 'express';
-import { authenticateToken } from '../middleware/authMiddleware';
-import { authorizeRoles } from '../middleware/authMiddleware';
+import { authenticateToken, authorizeRoles } from '../middleware/auth';
+import { UserRole } from '../types/user';
 import { payConfigService } from '../services/payConfigService';
 import { timesheetService } from '../services/timesheetService';
 import { weeklyReportService } from '../services/weeklyReportService';
@@ -75,7 +75,7 @@ router.get('/config/:employeeCode', authenticateToken, async (req: Request, res:
 router.post(
   '/config/:employeeCode',
   authenticateToken,
-  authorizeRoles('admin', 'supervisor'),
+  authorizeRoles(UserRole.ADMIN, UserRole.SUPERVISOR),
   async (req: Request, res: Response) => {
     try {
       const { employeeCode } = req.params;
@@ -110,7 +110,7 @@ router.post(
 router.get(
   '/config',
   authenticateToken,
-  authorizeRoles('admin', 'supervisor'),
+  authorizeRoles(UserRole.ADMIN, UserRole.SUPERVISOR),
   async (req: Request, res: Response) => {
     try {
       const configs = await payConfigService.getAllEmployeePayConfigs();
@@ -142,7 +142,7 @@ router.get(
 router.post(
   '/settings/workweek',
   authenticateToken,
-  authorizeRoles('admin', 'supervisor'),
+  authorizeRoles(UserRole.ADMIN, UserRole.SUPERVISOR),
   async (req: Request, res: Response) => {
     try {
       const request: WorkweekSettingsRequest = req.body;
@@ -176,7 +176,7 @@ router.post(
 router.post(
   '/calculate',
   authenticateToken,
-  authorizeRoles('admin', 'supervisor'),
+  authorizeRoles(UserRole.ADMIN, UserRole.SUPERVISOR),
   async (req: Request, res: Response) => {
     try {
       const calculationRequest: CalculationRequest = req.body;
@@ -219,7 +219,7 @@ router.post(
 router.post(
   '/calculate/:employeeCode',
   authenticateToken,
-  authorizeRoles('admin', 'supervisor'),
+  authorizeRoles(UserRole.ADMIN, UserRole.SUPERVISOR),
   async (req: Request, res: Response) => {
     try {
       const { employeeCode } = req.params;

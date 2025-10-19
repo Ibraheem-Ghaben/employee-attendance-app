@@ -41,15 +41,15 @@ export class WeeklyReportService {
         // Get employee name
         const employeeName = await this.getEmployeeName(employeeCode);
 
-        // Get timesheet days
-        const days = await new timesheetService.constructor().getTimesheetDays(
-          employeeCode,
-          fromDate,
-          toDate
-        );
+      // Get timesheet days
+      const days = await timesheetService.getTimesheetDays(
+        employeeCode,
+        fromDate,
+        toDate
+      );
 
         // Build daily breakdown
-        const dailyRows: WeeklyReportRow[] = days.map((day) => ({
+        const dailyRows: WeeklyReportRow[] = days.map((day: TimesheetDay) => ({
           employee_code: employeeCode,
           employee_name: employeeName,
           date: day.work_date,

@@ -24,6 +24,9 @@ router.get('/employees', auth_1.authenticateToken, (0, auth_1.authorizeRoles)(us
         const employeeCode = req.query.employee_code;
         const startDate = req.query.start_date;
         const endDate = req.query.end_date;
+        const employeeName = req.query.employee_name;
+        const site = req.query.site;
+        const inOutMode = req.query.in_out_mode;
         // Validate parameters
         if (page < 1) {
             return res.status(400).json({
@@ -37,7 +40,7 @@ router.get('/employees', auth_1.authenticateToken, (0, auth_1.authorizeRoles)(us
                 message: 'Page size must be between 1 and 500',
             });
         }
-        const result = await employeeProfileService.getAllAttendanceRecords(page, pageSize, employeeCode, startDate, endDate);
+        const result = await employeeProfileService.getAllAttendanceRecords(page, pageSize, employeeCode, startDate, endDate, employeeName, site, inOutMode);
         res.json({
             success: true,
             ...result,
@@ -45,6 +48,53 @@ router.get('/employees', auth_1.authenticateToken, (0, auth_1.authorizeRoles)(us
     }
     catch (error) {
         console.error('Error in /api/employees:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Internal server error',
+            error: error instanceof Error ? error.message : 'Unknown error',
+        });
+    }
+});
+/**
+ * GET /api/sites
+ * Get unique sites from MSS_TA database
+ * Protected: Admin and Supervisor only
+ */
+router.get('/sites', auth_1.authenticateToken, (0, auth_1.authorizeRoles)(user_1.UserRole.ADMIN, user_1.UserRole.SUPERVISOR), async (req, res) => {
+    try {
+        const sites = await employeeProfileService.getUniqueSites();
+        res.json({
+            success: true,
+            data: sites,
+        });
+    }
+    catch (error) {
+        console.error('Error in /api/sites:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Internal server error',
+            error: error instanceof Error ? error.message : 'Unknown error',
+        });
+    }
+});
+/**
+ * GET /api/statistics
+ * Get dashboard statistics from MSS_TA database
+ * Protected: Admin and Supervisor only
+ */
+router.get('/statistics', auth_1.authenticateToken, (0, auth_1.authorizeRoles)(user_1.UserRole.ADMIN, user_1.UserRole.SUPERVISOR), async (req, res) => {
+    try {
+        const employeeCode = req.query.employee_code;
+        const startDate = req.query.start_date;
+        const endDate = req.query.end_date;
+        const stats = await employeeProfileService.getDashboardStatistics(employeeCode, startDate, endDate);
+        res.json({
+            success: true,
+            data: stats,
+        });
+    }
+    catch (error) {
+        console.error('Error in /api/statistics:', error);
         res.status(500).json({
             success: false,
             message: 'Internal server error',
