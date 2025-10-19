@@ -68,4 +68,6 @@ export const closeConnection = async (): Promise<void> => {
   }
 };
 
+// Also export getLocalConnection for convenience
+export { getLocalConnection, closeLocalConnection } from './localDatabase';
 export { sql };

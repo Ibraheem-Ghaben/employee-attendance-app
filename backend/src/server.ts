@@ -5,6 +5,7 @@ import employeeRoutes from './routes/employeeRoutes';
 import authRoutes from './routes/authRoutes';
 import profileRoutes from './routes/profileRoutes';
 import exportRoutes from './routes/exportRoutes';
+import overtimeRoutes from './routes/overtimeRoutes';
 import { closeConnection } from './config/database';
 import { closeLocalConnection } from './config/localDatabase';
 
@@ -29,14 +30,15 @@ app.use((req, res, next) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/profile', profileRoutes);
 app.use('/api/export', exportRoutes);
+app.use('/api/overtime', overtimeRoutes);
 app.use('/api', employeeRoutes);
 
 // Root endpoint
 app.get('/', (req, res) => {
   res.json({
     success: true,
-    message: 'Employee Attendance API with Authentication',
-    version: '2.1.0',
+    message: 'Employee Attendance API with Authentication & Overtime Tracking',
+    version: '3.0.0',
     endpoints: {
       auth: {
         login: 'POST /api/auth/login',
@@ -56,6 +58,17 @@ app.get('/', (req, res) => {
       export: {
         attendance: 'GET /api/export/attendance?employee_code=XXX&start_date=YYYY-MM-DD&end_date=YYYY-MM-DD',
         myAttendance: 'GET /api/export/my-attendance?start_date=YYYY-MM-DD&end_date=YYYY-MM-DD',
+      },
+      overtime: {
+        payConfig: 'GET /api/overtime/config/:employeeCode',
+        updatePayConfig: 'POST /api/overtime/config/:employeeCode (Admin/Supervisor)',
+        allConfigs: 'GET /api/overtime/config (Admin/Supervisor)',
+        updateWorkweek: 'POST /api/overtime/settings/workweek (Admin/Supervisor)',
+        calculate: 'POST /api/overtime/calculate (Admin/Supervisor)',
+        calculateEmployee: 'POST /api/overtime/calculate/:employeeCode (Admin/Supervisor)',
+        weeklyReport: 'GET /api/overtime/reports/weekly?from_date=YYYY-MM-DD&to_date=YYYY-MM-DD&employee_code=XXX',
+        weeklyReportExport: 'GET /api/overtime/reports/weekly/export?from_date=YYYY-MM-DD&to_date=YYYY-MM-DD&employee_code=XXX',
+        timesheet: 'GET /api/overtime/timesheet/:employeeCode?from_date=YYYY-MM-DD&to_date=YYYY-MM-DD',
       },
       health: 'GET /api/health',
     },
