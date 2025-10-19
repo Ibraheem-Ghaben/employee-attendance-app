@@ -1,213 +1,326 @@
-# Employee Attendance Management System
+# 🏢 Employee Attendance System with Overtime Tracking
 
-A modern, full-stack web application for managing employee attendance records with real-time data from SQL Server (Laserfiche integration).
+A comprehensive employee attendance and overtime tracking system with **3-bucket pay calculation**, built with React, Node.js/Express, TypeScript, and SQL Server.
 
-## 🚀 Tech Stack
+## 🎯 Features
+
+### Core Features
+- ✅ Employee attendance tracking
+- ✅ Real-time punch IN/OUT recording
+- ✅ User authentication & authorization (JWT)
+- ✅ Role-based access control (Admin/Supervisor/Employee)
+- ✅ Employee profile management
+- ✅ Excel export functionality
+
+### Overtime System (NEW ⭐)
+- ✅ **3-Bucket Pay Calculation**
+  - Regular hours (workday within schedule)
+  - Weekday overtime (after OT start time)
+  - Weekend overtime (all hours on weekend days)
+- ✅ **Flexible Weekly Calendar**
+  - Custom week start day
+  - Configurable weekend days
+  - Custom workday hours
+  - Overtime threshold settings
+- ✅ **Advanced Pay Configuration**
+  - Fixed rate or multiplier modes
+  - Per-employee customization
+  - Site-level defaults
+- ✅ **Automated Calculation Engine**
+  - Automatic punch pairing
+  - Smart time splitting
+  - Error handling and logging
+- ✅ **Professional Reporting**
+  - Weekly summaries by employee
+  - Daily breakdown with all buckets
+  - Excel export for payroll
+  - Visual calendar view
+
+## 🏗️ Technology Stack
 
 ### Backend
-- **Node.js** with **TypeScript**
-- **Express.js** - REST API framework
-- **mssql** - SQL Server connector
-- **CORS** enabled for cross-origin requests
+- **Node.js** + **Express.js**
+- **TypeScript** for type safety
+- **SQL Server** (remote + local databases)
+- **JWT** authentication
+- **ExcelJS** for report generation
+- **Jest** for unit testing
 
 ### Frontend
-- **React 18** with **TypeScript**
+- **React** with TypeScript
+- **React Router** for navigation
 - **Axios** for API calls
-- Modern, responsive CSS design
-- Mobile-friendly UI
+- **CSS3** for responsive design
 
-## 📋 Features
-
-- ✅ Real-time employee attendance data from SQL Server
-- ✅ **Pagination** support (25, 50, 100, 200 records per page)
-- ✅ Responsive design for mobile, tablet, and desktop
-- ✅ Beautiful modern UI with gradient styling
-- ✅ Jump to specific page functionality
-- ✅ IN/OUT status badges with color coding
-- ✅ Company filter (MSS) and Clock ID filter (3)
-- ✅ TypeScript for type safety
-- ✅ Error handling and loading states
-
-## 📂 Project Structure
+## 📁 Project Structure
 
 ```
 employee_attendance_app/
-├── backend/                 # Node.js + TypeScript API
+├── backend/
 │   ├── src/
-│   │   ├── config/         # Database configuration
-│   │   ├── routes/         # API routes
-│   │   ├── services/       # Business logic
-│   │   ├── types/          # TypeScript types
-│   │   └── server.ts       # Express server
-│   ├── package.json
-│   ├── tsconfig.json
-│   └── .env
-├── frontend/               # React + TypeScript UI
+│   │   ├── config/           # Database connections
+│   │   ├── middleware/       # Auth middleware
+│   │   ├── routes/           # API routes
+│   │   ├── services/         # Business logic
+│   │   │   ├── overtimeCalculationService.ts
+│   │   │   ├── timesheetService.ts
+│   │   │   ├── payConfigService.ts
+│   │   │   └── weeklyReportService.ts
+│   │   ├── types/            # TypeScript types
+│   │   ├── tests/            # Unit tests
+│   │   └── server.ts         # Express server
+│   ├── overtime_schema.sql   # Overtime DB schema
+│   └── package.json
+│
+├── frontend/
 │   ├── src/
-│   │   ├── services/       # API service
-│   │   ├── types/          # TypeScript types
-│   │   ├── App.tsx         # Main component
-│   │   ├── App.css         # Styles
-│   │   └── index.tsx       # Entry point
-│   ├── public/
-│   ├── package.json
-│   ├── tsconfig.json
-│   └── .env
-└── README.md
+│   │   ├── components/
+│   │   │   ├── Dashboard.tsx
+│   │   │   ├── OvertimeSettings.tsx  # NEW
+│   │   │   ├── WeeklyCalendar.tsx    # NEW
+│   │   │   └── WeeklyReport.tsx      # NEW
+│   │   ├── services/
+│   │   │   ├── api.ts
+│   │   │   └── overtimeApi.ts        # NEW
+│   │   └── types/
+│   │       ├── employee.ts
+│   │       └── overtime.ts           # NEW
+│   └── package.json
+│
+├── setup_overtime.sh         # Automated setup
+├── test_overtime_system.sh   # API testing script
+├── OVERTIME_SYSTEM_GUIDE.md  # User guide
+└── README.md                 # This file
 ```
 
-## ⚙️ Installation & Setup
+## 🚀 Quick Start
 
 ### Prerequisites
+- Node.js 20+ installed
+- SQL Server installed and running
+- Git installed
 
-- **Node.js** 18+ and **npm** installed
-- **SQL Server** access (remote server: 213.244.69.164)
-- Network access to the database server
+### Installation
 
-### 1. Install Backend Dependencies
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/Ibraheem-Ghaben/employee-attendance-app.git
+   cd employee_attendance_app
+   ```
 
+2. **Set up databases**
+   ```bash
+   # Setup main authentication database
+   sqlcmd -S localhost -U sa -P YourPassword -i backend/create_local_database.sql
+   
+   # Setup overtime tables
+   sqlcmd -S localhost -U sa -P YourPassword -i backend/overtime_schema.sql
+   ```
+   
+   Or use the automated script:
+   ```bash
+   ./setup_overtime.sh
+   ```
+
+3. **Configure environment variables**
+   ```bash
+   # Backend
+   cd backend
+   cp .env.example .env
+   # Edit .env with your database credentials
+   ```
+
+4. **Install dependencies**
+   ```bash
+   # Backend
+   cd backend
+   npm install
+   npm run build
+   
+   # Frontend
+   cd ../frontend
+   npm install
+   ```
+
+5. **Start the application**
+   ```bash
+   # Terminal 1: Backend
+   cd backend
+   npm run dev
+   
+   # Terminal 2: Frontend
+   cd frontend
+   npm start
+   ```
+
+6. **Access the application**
+   - Frontend: http://localhost:3000
+   - Backend API: http://localhost:5000
+   - API Docs: http://localhost:5000/
+
+## 🧪 Testing
+
+### Run Unit Tests
 ```bash
-cd /home/administrator/employee_attendance_app/backend
-npm install
+cd backend
+npm test                # Run all tests
+npm run test:watch      # Watch mode
+npm run test:coverage   # Coverage report
 ```
 
-### 2. Configure Backend Environment
-
-Edit `backend/.env` if needed (already configured):
-
-```env
-DB_SERVER=213.244.69.164
-DB_NAME=MSS_TA
-DB_USER=menaitech
-DB_PASSWORD=menaitech
-DB_PORT=1433
-PORT=5000
-```
-
-### 3. Build and Start Backend
-
+### Test API Endpoints
 ```bash
-# Development mode (with hot reload)
-npm run dev
-
-# OR Production mode
-npm run build
-npm start
+./test_overtime_system.sh
 ```
 
-Backend will run on: **http://localhost:5000**
+## 🔐 Default Login Credentials
 
-### 4. Install Frontend Dependencies
+| Username | Password | Role | Employee Code |
+|----------|----------|------|---------------|
+| `admin` | `MSS@2024` | Admin | N/A |
+| `supervisor` | `MSS@2024` | Supervisor | 080001 |
+| `employee1` | `MSS@2024` | Employee | 080165 |
+| `employee2` | `MSS@2024` | Employee | 080416 |
 
-```bash
-cd /home/administrator/employee_attendance_app/frontend
-npm install
-```
+⚠️ **Change passwords in production!**
 
-### 5. Configure Frontend Environment
+## 📖 API Documentation
 
-Edit `frontend/.env` if needed:
+### Authentication
+```http
+POST /api/auth/login
+Content-Type: application/json
 
-```env
-REACT_APP_API_URL=http://localhost:5000/api
-```
-
-For network access from other machines, change to:
-```env
-REACT_APP_API_URL=http://192.168.5.103:5000/api
-```
-
-### 6. Start Frontend
-
-```bash
-npm start
-```
-
-Frontend will run on: **http://localhost:3000**
-
-## 🌐 API Endpoints
-
-### Backend API
-
-- **GET** `/api/employees?page=1&pageSize=50`
-  - Get paginated employee attendance records
-  - Query params:
-    - `page` (number, default: 1) - Page number
-    - `pageSize` (number, default: 50) - Records per page (1-500)
-  
-- **GET** `/api/health`
-  - Health check endpoint
-
-### Example Response
-
-```json
 {
-  "success": true,
-  "data": [
-    {
-      "Company_Code": "MSS",
-      "Branch_Code": "MSS",
-      "Employee_Code": "080165",
-      "Employee_Name_1_English": "Ihab Qais Nabhan Qatusa",
-      "Employee_Name_1_Arabic": "...",
-      "Site_1_English": "Ramallah",
-      "clock_id": 3,
-      "InOutMode": 1,
-      "punch_time": "2025-06-12T16:55:33"
-    }
-  ],
-  "pagination": {
-    "currentPage": 1,
-    "pageSize": 50,
-    "totalRecords": 18511,
-    "totalPages": 371,
-    "hasNextPage": true,
-    "hasPreviousPage": false
-  }
+  "username": "admin",
+  "password": "MSS@2024"
 }
 ```
 
-## 🎯 Usage
+### Overtime Endpoints
 
-### Access the Application
+#### Get Pay Configuration
+```http
+GET /api/overtime/config/:employeeCode
+Authorization: Bearer <token>
+```
 
-1. **Start Backend**: `cd backend && npm run dev`
-2. **Start Frontend**: `cd frontend && npm start`
-3. **Open Browser**: http://localhost:3000
+#### Calculate Timesheets
+```http
+POST /api/overtime/calculate/:employeeCode
+Authorization: Bearer <token>
+Content-Type: application/json
 
-### Features Usage
+{
+  "from_date": "2025-01-01",
+  "to_date": "2025-01-07"
+}
+```
 
-- **Change Page Size**: Use the dropdown in the top-right corner
-- **Navigate Pages**: Use Previous/Next buttons
-- **Jump to Page**: Enter page number and click "Go"
-- **View Details**: All employee and attendance info displayed in the table
+#### Get Weekly Report
+```http
+GET /api/overtime/reports/weekly?from_date=2025-01-01&to_date=2025-01-07&employee_code=080165
+Authorization: Bearer <token>
+```
 
-## 📱 Responsive Design
+#### Export to Excel
+```http
+GET /api/overtime/reports/weekly/export?from_date=2025-01-01&to_date=2025-01-07
+Authorization: Bearer <token>
+```
 
-The application is fully responsive and works on:
-- 📱 Mobile devices (320px+)
-- 📱 Tablets (768px+)
-- 💻 Desktops (1024px+)
-- 🖥️ Large screens (1600px+)
+See `OVERTIME_SYSTEM_GUIDE.md` for complete API reference.
 
-## 🔧 Development
+## 📊 Overtime System
 
-### Backend Development
+### How It Works
 
+1. **Configuration**: Set up employee pay rates and workweek schedule
+2. **Data Collection**: System records employee punch IN/OUT times
+3. **Calculation**: Admin/Supervisor triggers calculation for date range
+4. **Time Splitting**: System pairs punches and splits into 3 buckets:
+   - **Regular**: Workday hours within normal schedule
+   - **Weekday OT**: Workday hours after overtime threshold
+   - **Weekend OT**: All hours on weekend days
+5. **Pay Calculation**: Applies rates (fixed or multiplier) to each bucket
+6. **Reporting**: Generate weekly reports with Excel export
+
+### Example Calculation
+
+**Configuration:**
+- Workday: 09:00-17:00, OT after 17:00
+- Weekend: Friday-Saturday
+- Rates: $20/hr, 1.5× weekday OT, 2.0× weekend OT
+
+**Monday Punches:** 09:00 IN, 18:30 OUT
+- Regular: 8.0 hrs × $20 = **$160**
+- Weekday OT: 1.5 hrs × $30 = **$45**
+- **Total: $205**
+
+**Friday Punches:** 10:00 IN, 16:00 OUT
+- Weekend OT: 6.0 hrs × $40 = **$240**
+
+## 📚 Documentation
+
+- **OVERTIME_SYSTEM_GUIDE.md** - Complete system documentation
+- **OVERTIME_IMPLEMENTATION_SUMMARY.md** - Technical details
+- **COMPLETE_SYSTEM_SUMMARY.md** - Implementation summary
+- **AUTHENTICATION_GUIDE.md** - Auth system guide
+
+## 🛠️ Troubleshooting
+
+### Database Connection Issues
 ```bash
+# Test SQL Server connection
+sqlcmd -S localhost -U sa -P YourPassword -Q "SELECT 1"
+
+# Check if databases exist
+sqlcmd -S localhost -U sa -P YourPassword -Q "SELECT name FROM sys.databases"
+```
+
+### Backend Won't Start
+```bash
+# Check if port 5000 is in use
+lsof -i :5000
+
+# View backend logs
 cd backend
-npm run dev  # Runs with nodemon for hot reload
+npm run dev
 ```
 
-### Frontend Development
-
+### Frontend Won't Start
 ```bash
+# Check if port 3000 is in use
+lsof -i :3000
+
+# Clear cache and reinstall
 cd frontend
-npm start  # Runs with hot reload
+rm -rf node_modules package-lock.json
+npm install
+npm start
 ```
 
-### Build for Production
+## 📈 Development
 
+### Adding New Features
+1. Create feature branch: `git checkout -b feature/new-feature`
+2. Make changes and test
+3. Commit: `git commit -m "feat: description"`
+4. Push: `git push origin feature/new-feature`
+5. Create pull request on GitHub
+
+### Running in Development
+```bash
+# Backend with auto-reload
+cd backend
+npm run dev
+
+# Frontend with hot reload
+cd frontend
+npm start
+```
+
+### Building for Production
 ```bash
 # Backend
 cd backend
@@ -217,74 +330,61 @@ npm start
 # Frontend
 cd frontend
 npm run build
-# Serve the 'build' folder with a static server
+# Serve the build folder with your web server
 ```
 
-## 🚀 Deployment
+## 📄 License
 
-### Backend Production
+MIT License - See LICENSE file for details
 
-```bash
-cd backend
-npm run build
-NODE_ENV=production npm start
-```
+## 👨‍💻 Author
 
-Or use **PM2** for process management:
+Built for MSS - Employee Attendance Management
 
-```bash
-npm install -g pm2
-pm2 start dist/server.js --name employee-attendance-api
-pm2 save
-pm2 startup
-```
+## 🌟 Version
 
-### Frontend Production
+**Current Version**: 3.0.0
 
-Build and serve:
+### Changelog
 
-```bash
-cd frontend
-npm run build
+#### v3.0.0 (October 19, 2025)
+- Added comprehensive overtime tracking system
+- Implemented 3-bucket pay calculation
+- Added weekly calendar view
+- Created weekly report with Excel export
+- Built complete frontend UI components
+- Added unit tests for calculation engine
+- Complete documentation
 
-# Serve with a static server (e.g., nginx, serve, etc.)
-npx serve -s build -p 3000
-```
+#### v2.1.0
+- Added authentication system
+- Implemented role-based access control
+- Added user management
 
-## 📊 Database Query
+#### v1.0.0
+- Initial release
+- Basic attendance tracking
 
-The application queries employee data from:
-- **Database 1**: `Laserfiche.dbo.Laserfiche` (Employee master data)
-- **Database 2**: `MSS_TA.dbo.final_attendance_records` (Attendance records)
+## 🤝 Contributing
 
-**Join Condition**: `record.EnrollNumber = employee.Card_ID`
+Contributions are welcome! Please:
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests if applicable
+5. Submit a pull request
 
-**Filters**:
-- Company_Code = 'MSS'
-- Branch_Code = 'MSS'
-- clock_id = 3
-
-## 🔒 Security Notes
-
-- Change database credentials in production
-- Use environment variables for sensitive data
-- Enable SSL/TLS for SQL Server in production
-- Add authentication/authorization if exposing publicly
-- Use HTTPS in production
-- Implement rate limiting for API
-
-## 📝 License
-
-This project is provided as-is for internal use.
-
-## 🤝 Support
+## 📞 Support
 
 For issues or questions:
-1. Check the backend logs: Backend console output
-2. Check the frontend console: Browser DevTools
-3. Verify database connectivity: Test with `curl http://localhost:5000/api/health`
+- Open an issue on GitHub
+- Review documentation in `/docs`
+- Check troubleshooting section above
 
 ---
 
-**Built with ❤️ using TypeScript, Node.js, and React**
+**Repository**: https://github.com/Ibraheem-Ghaben/employee-attendance-app
 
+**Status**: ✅ Production Ready
+
+**Last Updated**: October 19, 2025
