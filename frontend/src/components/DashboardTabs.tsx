@@ -1,42 +1,37 @@
 /**
- * Dashboard with Tabs Component
- * Main dashboard with multiple tabs for different features
+ * Dashboard with Navbar Component
+ * Main dashboard with navbar navigation
  */
 
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import Sidebar from './Sidebar';
+import Navbar from './Navbar';
 import Dashboard from './Dashboard';
 import WeeklyCalendar from './WeeklyCalendar';
 import WeeklyReport from './WeeklyReport';
 import OvertimeSettings from './OvertimeSettings';
 import EmployeeManagement from './EmployeeManagement';
+import Profile from './Profile';
 import './DashboardTabs.css';
 
-type TabType = 'attendance' | 'calendar' | 'report' | 'settings' | 'create';
+type ViewType = 'attendance' | 'calendar' | 'report' | 'settings' | 'create' | 'profile';
 
 const DashboardTabs: React.FC = () => {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<TabType>('attendance');
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [activeView, setActiveView] = useState<ViewType>(
+    user?.role === 'employee' ? 'calendar' : 'attendance'
+  );
 
   const isAdmin = user?.role === 'admin';
   const isSupervisor = user?.role === 'supervisor';
   const isEmployee = user?.role === 'employee';
 
-  const tabs = [
-    { id: 'attendance' as TabType, label: '📊 Attendance', icon: '📊', roles: ['admin', 'supervisor'] },
-    { id: 'calendar' as TabType, label: '📅 Weekly Calendar', icon: '📅', roles: ['admin', 'supervisor', 'employee'] },
-    { id: 'report' as TabType, label: '📈 Weekly Report', icon: '📈', roles: ['admin', 'supervisor', 'employee'] },
-    { id: 'settings' as TabType, label: '⚙️ Overtime Settings', icon: '⚙️', roles: ['admin', 'supervisor', 'employee'] },
-    { id: 'create' as TabType, label: '➕ Create Employee', icon: '➕', roles: ['admin'] },
-  ];
-
-  const visibleTabs = tabs.filter(tab => tab.roles.includes(user?.role || ''));
-
-  const renderTabContent = () => {
-    switch (activeTab) {
+  const renderContent = () => {
+    switch (activeView) {
       case 'attendance':
+        if (!isAdmin && !isSupervisor) {
+          return <div className="access-denied">Access restricted to admin and supervisor only.</div>;
+        }
         return <Dashboard />;
       
       case 'calendar':
@@ -56,15 +51,24 @@ const DashboardTabs: React.FC = () => {
         );
       
       case 'settings':
+        if (!isAdmin) {
+          return <div className="access-denied">Overtime Settings are restricted to administrators only.</div>;
+        }
         return (
           <OvertimeSettings
             employeeCode={user?.employee_code || ''}
-            isAdmin={isAdmin || isSupervisor}
+            isAdmin={isAdmin}
           />
         );
       
       case 'create':
+        if (!isAdmin) {
+          return <div className="access-denied">Employee creation is restricted to administrators only.</div>;
+        }
         return <EmployeeManagement />;
+      
+      case 'profile':
+        return <Profile />;
       
       default:
         return <Dashboard />;
@@ -72,39 +76,11 @@ const DashboardTabs: React.FC = () => {
   };
 
   return (
-    <div className="dashboard-tabs-layout">
-      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+    <div className="dashboard-with-navbar">
+      <Navbar activeView={activeView} onViewChange={(view) => setActiveView(view as ViewType)} />
       
-      <div className="dashboard-tabs-main">
-        {/* Header with Menu Toggle */}
-        <div className="tabs-header">
-          <button className="menu-toggle" onClick={() => setSidebarOpen(!sidebarOpen)}>
-            ☰
-          </button>
-          <div className="header-title">
-            <h1>Employee Attendance System</h1>
-            <span className="header-subtitle">Welcome, {user?.full_name}</span>
-          </div>
-        </div>
-
-        {/* Tabs Navigation */}
-        <div className="tabs-navigation">
-          {visibleTabs.map(tab => (
-            <button
-              key={tab.id}
-              className={`tab-button ${activeTab === tab.id ? 'active' : ''}`}
-              onClick={() => setActiveTab(tab.id)}
-            >
-              <span className="tab-icon">{tab.icon}</span>
-              <span className="tab-label">{tab.label}</span>
-            </button>
-          ))}
-        </div>
-
-        {/* Tab Content */}
-        <div className="tab-content">
-          {renderTabContent()}
-        </div>
+      <div className="main-content">
+        {renderContent()}
       </div>
     </div>
   );
