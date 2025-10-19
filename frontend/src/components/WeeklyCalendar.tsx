@@ -76,7 +76,11 @@ const WeeklyCalendar: React.FC<WeeklyCalendarProps> = ({ employeeCode, isAdmin }
       const fromDate = formatDate(currentWeekStart);
       const toDate = formatDate(weekEnd);
 
-      await calculateEmployeeTimesheets(employeeCode, fromDate, toDate, true);
+      if (!employeeCode) {
+        setError('Please select an employee first');
+        return;
+      }
+      await calculateEmployeeTimesheets(employeeCode as string, fromDate, toDate, true);
       await loadWeekData();
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to calculate timesheets');

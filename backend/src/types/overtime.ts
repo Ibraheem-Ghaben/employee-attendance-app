@@ -107,6 +107,12 @@ export interface TimesheetDay {
   // Status
   is_calculated: boolean;
   calculation_error?: string;
+  // Admin workflow
+  ot_entry_mode?: 'auto' | 'admin_manual' | 'admin_adjusted';
+  approval_status?: 'pending' | 'approved' | 'rejected';
+  approved_by?: number;
+  approved_at?: Date;
+  notes?: string;
   
   // Audit fields
   created_at?: Date;
