@@ -1,0 +1,265 @@
+.overtime-settings {
+  padding: 20px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.overtime-settings h2 {
+  color: #333;
+  margin-bottom: 10px;
+}
+
+.overtime-settings .employee-code {
+  color: #666;
+  font-size: 14px;
+  margin-bottom: 20px;
+}
+
+.overtime-settings.loading {
+  text-align: center;
+  padding: 40px;
+  color: #666;
+}
+
+.overtime-settings.error {
+  padding: 40px;
+  text-align: center;
+}
+
+/* Alerts */
+.alert {
+  padding: 12px 16px;
+  border-radius: 4px;
+  margin-bottom: 20px;
+  font-size: 14px;
+}
+
+.alert-error {
+  background-color: #fee;
+  color: #c33;
+  border: 1px solid #fcc;
+}
+
+.alert-success {
+  background-color: #efe;
+  color: #3c3;
+  border: 1px solid #cfc;
+}
+
+/* Settings Sections */
+.settings-sections {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 30px;
+  margin-bottom: 30px;
+}
+
+@media (max-width: 968px) {
+  .settings-sections {
+    grid-template-columns: 1fr;
+  }
+}
+
+.settings-section {
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 20px;
+}
+
+.settings-section h3 {
+  color: #4472c4;
+  font-size: 18px;
+  margin-bottom: 20px;
+  border-bottom: 2px solid #4472c4;
+  padding-bottom: 10px;
+}
+
+.settings-section h4 {
+  color: #666;
+  font-size: 16px;
+  margin-top: 20px;
+  margin-bottom: 15px;
+}
+
+/* Form Groups */
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-group label {
+  display: block;
+  font-weight: 600;
+  color: #555;
+  margin-bottom: 8px;
+  font-size: 14px;
+}
+
+.form-group input,
+.form-group select {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 14px;
+  transition: border-color 0.2s;
+}
+
+.form-group input:focus,
+.form-group select:focus {
+  outline: none;
+  border-color: #4472c4;
+  box-shadow: 0 0 0 3px rgba(68, 114, 196, 0.1);
+}
+
+.form-group input:disabled,
+.form-group select:disabled {
+  background-color: #f5f5f5;
+  cursor: not-allowed;
+  color: #999;
+}
+
+/* Rate Config */
+.rate-config {
+  background: #f8f9fa;
+  padding: 15px;
+  border-radius: 6px;
+  margin-bottom: 15px;
+}
+
+.rate-preview {
+  margin-top: 10px;
+  padding: 10px;
+  background: #e8f4f8;
+  border-left: 4px solid #4472c4;
+  font-size: 14px;
+  color: #555;
+}
+
+.rate-preview strong {
+  color: #4472c4;
+  font-size: 16px;
+}
+
+/* Day Selector */
+.day-selector {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.day-button {
+  padding: 10px 16px;
+  border: 2px solid #ddd;
+  background: #fff;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  color: #666;
+  transition: all 0.2s;
+}
+
+.day-button:hover:not(:disabled) {
+  border-color: #4472c4;
+  background: #f0f5ff;
+}
+
+.day-button.selected {
+  background: #4472c4;
+  color: #fff;
+  border-color: #4472c4;
+}
+
+.day-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Actions */
+.settings-actions {
+  display: flex;
+  gap: 15px;
+  justify-content: center;
+  margin-bottom: 30px;
+}
+
+.btn {
+  padding: 12px 30px;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background: #4472c4;
+  color: #fff;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: #365a9b;
+  box-shadow: 0 2px 8px rgba(68, 114, 196, 0.3);
+}
+
+.btn-secondary {
+  background: #6c757d;
+  color: #fff;
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: #545b62;
+}
+
+/* Rate Summary */
+.rate-summary {
+  background: #f8f9fa;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 20px;
+}
+
+.rate-summary h4 {
+  color: #333;
+  margin-bottom: 15px;
+}
+
+.rate-summary table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.rate-summary th,
+.rate-summary td {
+  padding: 12px;
+  text-align: left;
+  border-bottom: 1px solid #ddd;
+}
+
+.rate-summary th {
+  background: #4472c4;
+  color: #fff;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.rate-summary td {
+  font-size: 14px;
+  color: #555;
+}
+
+.rate-summary tr:last-child td {
+  border-bottom: none;
+}
+
+.rate-summary tr:nth-child(even) {
+  background: #fff;
+}
+
