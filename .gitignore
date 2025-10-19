@@ -16,7 +16,10 @@ build/
 # Cache
 .cache/
 **/.cache/
+**/.cache/**
 .eslintcache
+*.pack
+*.pack.old
 
 # Logs
 logs/
