@@ -5,7 +5,12 @@
 
 import React, { useState } from 'react';
 import { WeeklyReportSummary } from '../types/overtime';
-import { getWeeklyReport, exportWeeklyReport, downloadExcelFile } from '../services/overtimeApi';
+import {
+  getWeeklyReport,
+  exportWeeklyReport,
+  downloadExcelFile,
+  getPunches,
+} from '../services/overtimeApi';
 import './WeeklyReport.css';
 
 interface WeeklyReportProps {
@@ -21,6 +26,24 @@ const WeeklyReport: React.FC<WeeklyReportProps> = ({ employeeCode, isAdmin }) =>
   const [loading, setLoading] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const formatTime = (time?: string | null) => {
+    if (!time) return '--';
+    try {
+      const date = new Date(time);
+      if (Number.isNaN(date.getTime())) {
+        return '--';
+      }
+      return date.toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true,
+        timeZone: 'UTC',
+      });
+    } catch {
+      return '--';
+    }
+  };
 
   function getDefaultFromDate(): string {
     const now = new Date();
@@ -43,13 +66,59 @@ const WeeklyReport: React.FC<WeeklyReportProps> = ({ employeeCode, isAdmin }) =>
       setLoading(true);
       setError(null);
 
+      const targetEmployee = isAdmin 
+        ? (selectedEmployee && selectedEmployee.trim() ? selectedEmployee : undefined)
+        : employeeCode;
+
       const data = await getWeeklyReport(
         fromDate,
         toDate,
-        isAdmin ? (selectedEmployee || undefined) : employeeCode
+        targetEmployee
       );
 
-      setReports(data);
+      const enriched = await Promise.all(
+        data.map(async (summary) => {
+          const daysWithPunches = await Promise.all(
+            (summary.days || []).map(async (day) => {
+              const dayDate = typeof day.date === 'string' ? day.date : new Date(day.date).toISOString().split('T')[0];
+              const employeeForDay = day.employee_code || summary.employee_code;
+
+              let firstPunch: string | undefined;
+              let lastPunch: string | undefined;
+
+              if (employeeForDay) {
+                try {
+                  const punches = await getPunches(employeeForDay, dayDate, dayDate);
+                  const sorted = punches
+                    .map((p) => ({ ...p, punch_time: new Date(p.punch_time).toISOString() }))
+                    .sort((a, b) => new Date(a.punch_time).getTime() - new Date(b.punch_time).getTime());
+
+                  firstPunch = sorted.find((p) => p.punch_type === 'IN')?.punch_time;
+                  lastPunch = [...sorted].reverse().find((p) => p.punch_type === 'OUT')?.punch_time;
+                } catch (err) {
+                  console.error('Failed loading punches for report day', { employeeForDay, dayDate, err });
+                }
+              }
+
+              return {
+                ...day,
+                first_punch_in: firstPunch,
+                last_punch_out: lastPunch,
+              } as WeeklyReportSummary['days'][number] & {
+                first_punch_in?: string;
+                last_punch_out?: string;
+              };
+            })
+          );
+
+          return {
+            ...summary,
+            days: daysWithPunches,
+          };
+        })
+      );
+
+      setReports(enriched);
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to generate report');
     } finally {
@@ -62,10 +131,14 @@ const WeeklyReport: React.FC<WeeklyReportProps> = ({ employeeCode, isAdmin }) =>
       setExporting(true);
       setError(null);
 
+      const targetEmployee = isAdmin 
+        ? (selectedEmployee && selectedEmployee.trim() ? selectedEmployee : undefined)
+        : employeeCode;
+
       const blob = await exportWeeklyReport(
         fromDate,
         toDate,
-        isAdmin ? (selectedEmployee || undefined) : employeeCode
+        targetEmployee
       );
 
       const filename = `Weekly_Report_${fromDate}_to_${toDate}.xlsx`;
@@ -164,6 +237,7 @@ const WeeklyReport: React.FC<WeeklyReportProps> = ({ employeeCode, isAdmin }) =>
                         <th>Weekday OT</th>
                         <th>Weekend OT</th>
                         <th>Total Hrs</th>
+                        <th>First / Last Punch</th>
                         <th>Regular Pay</th>
                         <th>Weekday OT Pay</th>
                         <th>Weekend OT Pay</th>
@@ -175,29 +249,39 @@ const WeeklyReport: React.FC<WeeklyReportProps> = ({ employeeCode, isAdmin }) =>
                         <tr key={index}>
                           <td>{new Date(day.date).toLocaleDateString()}</td>
                           <td>{day.day}</td>
-                          <td>{day.regular_hours.toFixed(2)}</td>
-                          <td>{day.weekday_ot_hours.toFixed(2)}</td>
-                          <td>{day.weekend_ot_hours.toFixed(2)}</td>
-                          <td><strong>{day.total_hours.toFixed(2)}</strong></td>
-                          <td>${day.regular_pay.toFixed(2)}</td>
-                          <td>${day.weekday_ot_pay.toFixed(2)}</td>
-                          <td>${day.weekend_ot_pay.toFixed(2)}</td>
-                          <td><strong>${day.daily_total.toFixed(2)}</strong></td>
+                          <td>{(day.regular_hours ?? 0).toFixed(2)}</td>
+                          <td>{(day.weekday_ot_hours ?? 0).toFixed(2)}</td>
+                          <td>{(day.weekend_ot_hours ?? 0).toFixed(2)}</td>
+                          <td><strong>{(day.total_hours ?? 0).toFixed(2)}</strong></td>
+                          <td className="punch-window">
+                            <div>
+                              <span className="punch-label">IN</span>
+                              <span className="punch-value">{formatTime((day as any).first_punch_in)}</span>
+                            </div>
+                            <div>
+                              <span className="punch-label">OUT</span>
+                              <span className="punch-value">{formatTime((day as any).last_punch_out)}</span>
+                            </div>
+                          </td>
+                          <td>₪{(day.regular_pay ?? 0).toFixed(2)}</td>
+                          <td>₪{(day.weekday_ot_pay ?? 0).toFixed(2)}</td>
+                          <td>₪{(day.weekend_ot_pay ?? 0).toFixed(2)}</td>
+                          <td><strong>₪{(day.daily_total ?? 0).toFixed(2)}</strong></td>
                         </tr>
                       ))}
                     </tbody>
                     <tfoot>
                       <tr className="totals-row">
                         <td colSpan={2}><strong>WEEKLY TOTALS</strong></td>
-                        <td><strong>{report.total_regular_hours.toFixed(2)}</strong></td>
-                        <td><strong>{report.total_weekday_ot_hours.toFixed(2)}</strong></td>
-                        <td><strong>{report.total_weekend_ot_hours.toFixed(2)}</strong></td>
-                        <td><strong>{report.total_hours.toFixed(2)}</strong></td>
-                        <td><strong>${report.total_regular_pay.toFixed(2)}</strong></td>
-                        <td><strong>${report.total_weekday_ot_pay.toFixed(2)}</strong></td>
-                        <td><strong>${report.total_weekend_ot_pay.toFixed(2)}</strong></td>
+                        <td><strong>{(report.total_regular_hours ?? 0).toFixed(2)}</strong></td>
+                        <td><strong>{(report.total_weekday_ot_hours ?? 0).toFixed(2)}</strong></td>
+                        <td><strong>{(report.total_weekend_ot_hours ?? 0).toFixed(2)}</strong></td>
+                        <td><strong>{(report.total_hours ?? 0).toFixed(2)}</strong></td>
+                        <td><strong>₪{(report.total_regular_pay ?? 0).toFixed(2)}</strong></td>
+                        <td><strong>₪{(report.total_weekday_ot_pay ?? 0).toFixed(2)}</strong></td>
+                        <td><strong>₪{(report.total_weekend_ot_pay ?? 0).toFixed(2)}</strong></td>
                         <td className="grand-total">
-                          <strong>${report.week_total_pay.toFixed(2)}</strong>
+                          <strong>₪{report.week_total_pay.toFixed(2)}</strong>
                         </td>
                       </tr>
                     </tfoot>
@@ -209,26 +293,26 @@ const WeeklyReport: React.FC<WeeklyReportProps> = ({ employeeCode, isAdmin }) =>
               <div className="summary-cards">
                 <div className="summary-card">
                   <div className="card-label">Total Hours</div>
-                  <div className="card-value">{report.total_hours.toFixed(2)}</div>
+                  <div className="card-value">{(report.total_hours ?? 0).toFixed(2)}</div>
                 </div>
                 <div className="summary-card">
                   <div className="card-label">Regular Hours</div>
-                  <div className="card-value">{report.total_regular_hours.toFixed(2)}</div>
-                  <div className="card-pay">${report.total_regular_pay.toFixed(2)}</div>
+                  <div className="card-value">{(report.total_regular_hours ?? 0).toFixed(2)}</div>
+                  <div className="card-pay">₪{(report.total_regular_pay ?? 0).toFixed(2)}</div>
                 </div>
                 <div className="summary-card">
                   <div className="card-label">Weekday OT</div>
-                  <div className="card-value">{report.total_weekday_ot_hours.toFixed(2)}</div>
-                  <div className="card-pay">${report.total_weekday_ot_pay.toFixed(2)}</div>
+                  <div className="card-value">{(report.total_weekday_ot_hours ?? 0).toFixed(2)}</div>
+                  <div className="card-pay">₪{(report.total_weekday_ot_pay ?? 0).toFixed(2)}</div>
                 </div>
                 <div className="summary-card">
                   <div className="card-label">Weekend OT</div>
-                  <div className="card-value">{report.total_weekend_ot_hours.toFixed(2)}</div>
-                  <div className="card-pay">${report.total_weekend_ot_pay.toFixed(2)}</div>
+                  <div className="card-value">{(report.total_weekend_ot_hours ?? 0).toFixed(2)}</div>
+                  <div className="card-pay">₪{(report.total_weekend_ot_pay ?? 0).toFixed(2)}</div>
                 </div>
                 <div className="summary-card total">
                   <div className="card-label">Total Pay</div>
-                  <div className="card-value">${report.week_total_pay.toFixed(2)}</div>
+                  <div className="card-value">₪{(report.week_total_pay ?? 0).toFixed(2)}</div>
                 </div>
               </div>
             </div>

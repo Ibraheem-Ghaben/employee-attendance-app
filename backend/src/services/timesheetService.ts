@@ -3,7 +3,7 @@
  * Manages timesheet days, punch records, and orchestrates overtime calculations
  */
 
-import { getLocalConnection, sql } from '../config/database';
+import { getLocalConnection, sql } from '../config/localDatabase';
 import {
   TimesheetDay,
   PunchRecord,
@@ -15,6 +15,20 @@ import {
 import { overtimeCalculationService } from './overtimeCalculationService';
 
 export class TimesheetService {
+  private localEmployeeCache: string[] | null = null;
+
+  private async getLocalEmployeeCodes(): Promise<string[]> {
+    if (this.localEmployeeCache) {
+      return this.localEmployeeCache;
+    }
+    const pool = await getLocalConnection();
+    const result = await pool
+      .request()
+      .query('SELECT employee_code FROM dbo.Users WHERE employee_code IS NOT NULL');
+    this.localEmployeeCache = result.recordset.map((row: any) => row.employee_code);
+    return this.localEmployeeCache;
+  }
+
   /**
    * Calculate timesheets for date range
    */
@@ -109,18 +123,88 @@ export class TimesheetService {
 
       // Get punch records for this day from remote database
       const punches = await this.getPunchRecordsFromRemote(employeeCode, date);
+      console.log(`[Timesheet] ${employeeCode} ${dateStr} fetched punches:`, punches.length);
       
-      // Create punch spans
-      const spans = overtimeCalculationService.pairPunchesToSpans(punches);
+      // Sort punches chronologically
+      const sortedPunches = [...punches].sort((a, b) => a.punch_time.getTime() - b.punch_time.getTime());
+      
+      // Helper: Infer punch type from time of day if mode is unknown
+      const inferPunchType = (punchTime: Date, originalType: 'IN' | 'OUT'): 'IN' | 'OUT' => {
+        const hour = punchTime.getHours();
+        
+        // If original type is clear, use it
+        if (originalType === 'IN' || originalType === 'OUT') {
+          return originalType;
+        }
+        
+        // Infer from time: Morning (6-12) = IN, Afternoon/Evening (14-20) = OUT
+        if (hour >= 6 && hour < 12) {
+          return 'IN';
+        } else if (hour >= 14 && hour <= 20) {
+          return 'OUT';
+        }
+        
+        // Default: first half of day = IN, second half = OUT
+        return hour < 12 ? 'IN' : 'OUT';
+      };
+      
+      // Enhance punches with inferred types
+      const enhancedPunches = sortedPunches.map(p => ({
+        ...p,
+        inferred_type: inferPunchType(p.punch_time, p.punch_type),
+      }));
+      
+      // Smart approach: Find first IN, then find last OUT or last punch
+      let first_punch_in: Date | undefined;
+      let last_punch_out: Date | undefined;
+      let spans: Array<{ punch_in: Date; punch_out: Date; duration_minutes: number }> = [];
+      
+      if (enhancedPunches.length >= 1) {
+        // Find first IN punch (actual or inferred)
+        const firstInPunch = enhancedPunches.find((p) => p.inferred_type === 'IN');
+        
+        if (firstInPunch) {
+          first_punch_in = firstInPunch.punch_time;
+          
+          // Find punches after the IN
+          const punchesAfterIn = enhancedPunches.filter(
+            (p) => p.punch_time.getTime() > firstInPunch.punch_time.getTime()
+          );
+          
+          if (punchesAfterIn.length > 0) {
+            // Prefer last OUT punch, fallback to last punch
+            const lastOutPunch = [...punchesAfterIn].reverse().find((p) => p.inferred_type === 'OUT');
+            last_punch_out = lastOutPunch ? lastOutPunch.punch_time : punchesAfterIn[punchesAfterIn.length - 1].punch_time;
+            
+            const duration_minutes = Math.round(
+              (last_punch_out.getTime() - first_punch_in.getTime()) / (1000 * 60)
+            );
+            
+            if (duration_minutes > 0) {
+              spans = [{
+                punch_in: first_punch_in,
+                punch_out: last_punch_out,
+                duration_minutes,
+              }];
+            }
+          }
+        } else if (enhancedPunches.length === 1) {
+          // Single punch - store it for reference
+          first_punch_in = enhancedPunches[0].punch_time;
+        }
+      }
+      
+      console.log(`[Timesheet] ${employeeCode} ${dateStr} spans:`, spans.length, 
+        first_punch_in ? `IN: ${first_punch_in.toISOString()}` : 'No IN',
+        last_punch_out ? `OUT: ${last_punch_out.toISOString()}` : 'No OUT');
       
       // Calculate buckets
       const calculation = overtimeCalculationService.calculate(date, spans, config);
-      
-      // Get first/last punch times
-      const first_punch_in = punches.find((p) => p.punch_type === 'IN')?.punch_time || undefined;
-      const last_punch_out = punches
-        .filter((p) => p.punch_type === 'OUT')
-        .pop()?.punch_time || undefined;
+      console.log(`[Timesheet] ${employeeCode} ${dateStr} calc minutes:`, {
+        regular: calculation.regular_minutes,
+        weekday_ot: calculation.weekday_ot_minutes,
+        weekend_ot: calculation.weekend_ot_minutes,
+      });
       
       // Determine rates used
       const rates = overtimeCalculationService.calculateRates(config);
@@ -161,7 +245,6 @@ export class TimesheetService {
         return { ...existing, ...timesheetDay } as TimesheetDay;
       } else {
         const inserted = await this.insertTimesheetDay(timesheetDay);
-        await pool.close();
         return inserted;
       }
     } catch (error) {
@@ -184,7 +267,6 @@ export class TimesheetService {
       } else {
         await this.insertTimesheetDay(errorDay);
       }
-      await pool.close();
       throw error;
     }
   }
@@ -204,31 +286,98 @@ export class TimesheetService {
     const endOfDay = new Date(date);
     endOfDay.setHours(23, 59, 59, 999);
 
-    // Query remote database through the connection
-    const result = await pool.request()
-      .input('employeeCode', sql.VarChar, employeeCode)
-      .input('startDate', sql.DateTime, startOfDay)
-      .input('endDate', sql.DateTime, endOfDay)
-      .query(`
-        SELECT 
-          record.punch_time,
-          record.InOutMode
-        FROM [Laserfiche].[dbo].[Laserfiche] as employee
-        LEFT JOIN [MSS_TA].[dbo].[final_attendance_records] as record
-          ON record.EnrollNumber = employee.Card_ID
-        WHERE employee.Employee_Code = @employeeCode
-          AND employee.Company_Code = 'MSS'
-          AND employee.Branch_Code = 'MSS'
-          AND record.clock_id = 3
-          AND record.punch_time >= @startDate
-          AND record.punch_time <= @endDate
-        ORDER BY record.punch_time ASC
-      `);
+    const localCodes = await this.getLocalEmployeeCodes();
+    if (!localCodes.includes(employeeCode)) {
+      return [];
+    }
 
-    return result.recordset.map((r: any) => ({
-      punch_time: new Date(r.punch_time),
-      punch_type: r.InOutMode === 0 ? 'IN' : 'OUT',
-    }));
+    const request = pool.request()
+      .input('employeeCode', sql.VarChar, employeeCode)
+      .input('startDate', sql.DateTime2, startOfDay)
+      .input('endDate', sql.DateTime2, endOfDay);
+
+    const query = `
+        SELECT
+          punch_time,
+          in_out_mode
+        FROM dbo.SyncedAttendance
+        WHERE employee_code = @employeeCode
+          AND punch_time >= @startDate
+          AND punch_time <= @endDate
+        ORDER BY punch_time ASC
+      `;
+    const result = await request.query(query);
+    console.log(`[Timesheet] ${employeeCode} ${overtimeCalculationService.formatDate(date)} local rows:`, result.recordset.length);
+
+    return result.recordset.map((r: any) => {
+      const mode = r.in_out_mode;
+      let punchType: 'IN' | 'OUT';
+      if (typeof mode === 'string') {
+        const m = String(mode).toUpperCase();
+        punchType = m === 'IN' ? 'IN' : 'OUT';
+      } else if (typeof mode === 'number') {
+        punchType = mode === 0 ? 'IN' : 'OUT';
+      } else {
+        punchType = 'OUT';
+      }
+
+      return {
+        punch_time: new Date(r.punch_time),
+        punch_type: punchType,
+      };
+    });
+  }
+
+  /**
+   * Get punch records from local synced table over a date range
+   */
+  async getPunchRecordsRange(
+    employeeCode: string,
+    fromDate: Date,
+    toDate: Date
+  ): Promise<Array<{ punch_time: Date; punch_type: 'IN' | 'OUT' }>> {
+    const pool = await getLocalConnection();
+
+    const start = new Date(fromDate);
+    start.setHours(0, 0, 0, 0);
+    const end = new Date(toDate);
+    end.setHours(23, 59, 59, 999);
+
+    const request = pool.request()
+      .input('employeeCode', sql.VarChar, employeeCode)
+      .input('startDate', sql.DateTime2, start)
+      .input('endDate', sql.DateTime2, end);
+
+    const query = `
+      SELECT
+        punch_time,
+        in_out_mode
+      FROM dbo.SyncedAttendance
+      WHERE employee_code = @employeeCode
+        AND punch_time >= @startDate
+        AND punch_time <= @endDate
+      ORDER BY punch_time ASC
+    `;
+
+    const result = await request.query(query);
+
+    return result.recordset.map((r: any) => {
+      const mode = r.in_out_mode;
+      let punchType: 'IN' | 'OUT';
+      if (typeof mode === 'string') {
+        const m = String(mode).toUpperCase();
+        punchType = m === 'IN' ? 'IN' : 'OUT';
+      } else if (typeof mode === 'number') {
+        punchType = mode === 0 ? 'IN' : 'OUT';
+      } else {
+        punchType = 'OUT';
+      }
+
+      return {
+        punch_time: new Date(r.punch_time),
+        punch_type: punchType,
+      };
+    });
   }
 
   /**
@@ -248,7 +397,6 @@ export class TimesheetService {
         `);
 
     const day = result.recordset[0] || null;
-    await pool.close();
     return day;
     } catch (error) {
       console.error('Error getting timesheet day:', error);

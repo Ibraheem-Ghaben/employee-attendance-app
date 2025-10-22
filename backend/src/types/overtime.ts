@@ -15,9 +15,11 @@ export interface EmployeePayConfig {
   id?: number;
   employee_code: string;
   
-  // Pay Type
+  // Pay Type & Rates
   pay_type: PayType;
-  hourly_rate_regular: number;
+  hourly_rate_regular: number;    // Used for Hourly pay type
+  daily_rate?: number;             // Used for Daily pay type
+  monthly_salary?: number;         // Used for Monthly pay type
   
   // Weekday Overtime Configuration
   weekday_ot_rate_type: RateType;
@@ -248,6 +250,8 @@ export interface PayConfigUpdateRequest {
   // Pay configuration
   pay_type?: PayType;
   hourly_rate_regular?: number;
+  daily_rate?: number;
+  monthly_salary?: number;
   
   // Weekday OT
   weekday_ot_rate_type?: RateType;

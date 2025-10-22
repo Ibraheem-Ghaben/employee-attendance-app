@@ -22,8 +22,10 @@ export class PayConfigService {
       const result = await pool.request()
         .input('employeeCode', sql.VarChar, employeeCode)
         .query(`
-          SELECT * FROM dbo.EmployeePayConfig
-          WHERE employee_code = @employeeCode
+          SELECT epc.*, COALESCE(emp.full_name, emp.username, '') AS employee_name
+          FROM dbo.EmployeePayConfig epc
+          LEFT JOIN dbo.Users emp ON epc.employee_code = emp.employee_code
+          WHERE epc.employee_code = @employeeCode
         `);
 
       return result.recordset[0] || null;
@@ -49,6 +51,8 @@ export class PayConfigService {
           .input('employee_code', sql.VarChar, config.employee_code)
           .input('pay_type', sql.VarChar, config.pay_type)
           .input('hourly_rate_regular', sql.Decimal(10, 2), config.hourly_rate_regular)
+          .input('daily_rate', sql.Decimal(10, 2), config.daily_rate)
+          .input('monthly_salary', sql.Decimal(10, 2), config.monthly_salary)
           .input('weekday_ot_rate_type', sql.VarChar, config.weekday_ot_rate_type)
           .input('hourly_rate_weekday_ot', sql.Decimal(10, 2), config.hourly_rate_weekday_ot)
           .input('weekday_ot_multiplier', sql.Decimal(5, 2), config.weekday_ot_multiplier)
@@ -57,15 +61,17 @@ export class PayConfigService {
           .input('weekend_ot_multiplier', sql.Decimal(5, 2), config.weekend_ot_multiplier)
           .input('week_start', sql.VarChar, config.week_start)
           .input('weekend_days', sql.VarChar, config.weekend_days)
-          .input('workday_start', sql.Time, config.workday_start)
-          .input('workday_end', sql.Time, config.workday_end)
-          .input('ot_start_time_on_workdays', sql.Time, config.ot_start_time_on_workdays)
+          .input('workday_start', sql.VarChar, config.workday_start)
+          .input('workday_end', sql.VarChar, config.workday_end)
+          .input('ot_start_time_on_workdays', sql.VarChar, config.ot_start_time_on_workdays)
           .input('minimum_daily_hours_for_pay', sql.Decimal(5, 2), config.minimum_daily_hours_for_pay)
           .query(`
             UPDATE dbo.EmployeePayConfig
             SET 
               pay_type = @pay_type,
               hourly_rate_regular = @hourly_rate_regular,
+              daily_rate = @daily_rate,
+              monthly_salary = @monthly_salary,
               weekday_ot_rate_type = @weekday_ot_rate_type,
               hourly_rate_weekday_ot = @hourly_rate_weekday_ot,
               weekday_ot_multiplier = @weekday_ot_multiplier,
@@ -87,6 +93,8 @@ export class PayConfigService {
           .input('employee_code', sql.VarChar, config.employee_code)
           .input('pay_type', sql.VarChar, config.pay_type)
           .input('hourly_rate_regular', sql.Decimal(10, 2), config.hourly_rate_regular)
+          .input('daily_rate', sql.Decimal(10, 2), config.daily_rate)
+          .input('monthly_salary', sql.Decimal(10, 2), config.monthly_salary)
           .input('weekday_ot_rate_type', sql.VarChar, config.weekday_ot_rate_type)
           .input('hourly_rate_weekday_ot', sql.Decimal(10, 2), config.hourly_rate_weekday_ot)
           .input('weekday_ot_multiplier', sql.Decimal(5, 2), config.weekday_ot_multiplier)
@@ -95,20 +103,20 @@ export class PayConfigService {
           .input('weekend_ot_multiplier', sql.Decimal(5, 2), config.weekend_ot_multiplier)
           .input('week_start', sql.VarChar, config.week_start)
           .input('weekend_days', sql.VarChar, config.weekend_days)
-          .input('workday_start', sql.Time, config.workday_start)
-          .input('workday_end', sql.Time, config.workday_end)
-          .input('ot_start_time_on_workdays', sql.Time, config.ot_start_time_on_workdays)
+          .input('workday_start', sql.VarChar, config.workday_start)
+          .input('workday_end', sql.VarChar, config.workday_end)
+          .input('ot_start_time_on_workdays', sql.VarChar, config.ot_start_time_on_workdays)
           .input('minimum_daily_hours_for_pay', sql.Decimal(5, 2), config.minimum_daily_hours_for_pay)
           .query(`
             INSERT INTO dbo.EmployeePayConfig (
-              employee_code, pay_type, hourly_rate_regular,
+              employee_code, pay_type, hourly_rate_regular, daily_rate, monthly_salary,
               weekday_ot_rate_type, hourly_rate_weekday_ot, weekday_ot_multiplier,
               weekend_ot_rate_type, hourly_rate_weekend_ot, weekend_ot_multiplier,
               week_start, weekend_days, workday_start, workday_end, ot_start_time_on_workdays,
               minimum_daily_hours_for_pay
             )
             VALUES (
-              @employee_code, @pay_type, @hourly_rate_regular,
+              @employee_code, @pay_type, @hourly_rate_regular, @daily_rate, @monthly_salary,
               @weekday_ot_rate_type, @hourly_rate_weekday_ot, @weekday_ot_multiplier,
               @weekend_ot_rate_type, @hourly_rate_weekend_ot, @weekend_ot_multiplier,
               @week_start, @weekend_days, @workday_start, @workday_end, @ot_start_time_on_workdays,
@@ -165,9 +173,9 @@ export class PayConfigService {
           .input('employee_code', sql.VarChar, request.employee_code)
           .input('week_start', sql.VarChar, request.week_start)
           .input('weekend_days', sql.VarChar, weekendDaysStr)
-          .input('workday_start', sql.Time, request.workday_start)
-          .input('workday_end', sql.Time, request.workday_end)
-          .input('ot_start_time_on_workdays', sql.Time, request.ot_start_time_on_workdays)
+          .input('workday_start', sql.VarChar, request.workday_start)
+          .input('workday_end', sql.VarChar, request.workday_end)
+          .input('ot_start_time_on_workdays', sql.VarChar, request.ot_start_time_on_workdays)
           .input('minimum_daily_hours_for_pay', sql.Decimal(5, 2), request.minimum_daily_hours_for_pay || existing.minimum_daily_hours_for_pay)
           .query(`
             UPDATE dbo.EmployeePayConfig
@@ -237,8 +245,10 @@ export class PayConfigService {
       const pool = await getLocalConnection();
 
       const result = await pool.request().query(`
-        SELECT * FROM dbo.EmployeePayConfig
-        ORDER BY employee_code
+        SELECT epc.*, COALESCE(emp.full_name, emp.username, '') AS employee_name
+        FROM dbo.EmployeePayConfig epc
+        LEFT JOIN dbo.Users emp ON epc.employee_code = emp.employee_code
+        ORDER BY epc.employee_code
       `);
 
       return result.recordset;

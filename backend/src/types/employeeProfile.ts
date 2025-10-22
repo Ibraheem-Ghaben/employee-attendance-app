@@ -16,6 +16,8 @@ export interface EmployeeAttendanceRecord {
   clock_id: number;
   InOutMode: number;
   punch_time: Date | string;
+  full_name?: string;
+  clock_description?: string;
 }
 
 export interface EmployeeWithAttendance extends EmployeeProfile {

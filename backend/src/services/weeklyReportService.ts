@@ -24,15 +24,20 @@ export class WeeklyReportService {
       const fromDate = new Date(request.from_date);
       const toDate = new Date(request.to_date);
 
-      // Get employee codes to process
+      // Get employee codes to process from active local employees
       let employeeCodes: string[];
-      if (request.employee_code) {
-        employeeCodes = [request.employee_code];
+      if (request.employee_code && request.employee_code.trim()) {
+        employeeCodes = [request.employee_code.trim()];
+        console.log(`[Weekly Report] Generating for single employee: ${request.employee_code}`);
       } else {
         const result = await pool.request().query(`
-          SELECT DISTINCT employee_code FROM dbo.EmployeePayConfig
+          SELECT employee_code
+          FROM dbo.Users
+          WHERE employee_code IS NOT NULL AND is_active = 1
+          ORDER BY employee_code
         `);
         employeeCodes = result.recordset.map((r: any) => r.employee_code);
+        console.log(`[Weekly Report] Generating for ${employeeCodes.length} employees`);
       }
 
       const summaries: WeeklyReportSummary[] = [];
@@ -40,6 +45,18 @@ export class WeeklyReportService {
       for (const employeeCode of employeeCodes) {
         // Get employee name
         const employeeName = await this.getEmployeeName(employeeCode);
+
+      // Auto-calculate timesheets for the period if needed
+      try {
+        await timesheetService.calculateTimesheets({
+          employee_code: employeeCode,
+          from_date: overtimeCalculationService.formatDate(fromDate),
+          to_date: overtimeCalculationService.formatDate(toDate),
+          force_recalculate: false,
+        });
+      } catch (calcError) {
+        console.warn(`[Weekly Report] Failed to auto-calculate for ${employeeCode}:`, calcError);
+      }
 
       // Get timesheet days
       const days = await timesheetService.getTimesheetDays(
@@ -54,14 +71,14 @@ export class WeeklyReportService {
           employee_name: employeeName,
           date: day.work_date,
           day: day.day_of_week,
-          regular_hours: day.regular_minutes / 60,
-          weekday_ot_hours: day.weekday_ot_minutes / 60,
-          weekend_ot_hours: day.weekend_ot_minutes / 60,
-          total_hours: day.total_worked_minutes / 60,
-          regular_pay: day.regular_pay,
-          weekday_ot_pay: day.weekday_ot_pay,
-          weekend_ot_pay: day.weekend_ot_pay,
-          daily_total: day.total_pay,
+          regular_hours: (day.regular_minutes || 0) / 60,
+          weekday_ot_hours: (day.weekday_ot_minutes || 0) / 60,
+          weekend_ot_hours: (day.weekend_ot_minutes || 0) / 60,
+          total_hours: (day.total_worked_minutes || 0) / 60,
+          regular_pay: day.regular_pay ?? 0,
+          weekday_ot_pay: day.weekday_ot_pay ?? 0,
+          weekend_ot_pay: day.weekend_ot_pay ?? 0,
+          daily_total: day.total_pay ?? 0,
         }));
 
         // Calculate totals
@@ -70,21 +87,21 @@ export class WeeklyReportService {
           employee_name: employeeName,
           week_start: fromDate,
           week_end: toDate,
-          total_regular_hours: dailyRows.reduce((sum, row) => sum + row.regular_hours, 0),
-          total_weekday_ot_hours: dailyRows.reduce((sum, row) => sum + row.weekday_ot_hours, 0),
-          total_weekend_ot_hours: dailyRows.reduce((sum, row) => sum + row.weekend_ot_hours, 0),
-          total_hours: dailyRows.reduce((sum, row) => sum + row.total_hours, 0),
-          total_regular_pay: dailyRows.reduce((sum, row) => sum + row.regular_pay, 0),
-          total_weekday_ot_pay: dailyRows.reduce((sum, row) => sum + row.weekday_ot_pay, 0),
-          total_weekend_ot_pay: dailyRows.reduce((sum, row) => sum + row.weekend_ot_pay, 0),
-          week_total_pay: dailyRows.reduce((sum, row) => sum + row.daily_total, 0),
+          total_regular_hours: dailyRows.reduce((sum, row) => sum + (row.regular_hours || 0), 0),
+          total_weekday_ot_hours: dailyRows.reduce((sum, row) => sum + (row.weekday_ot_hours || 0), 0),
+          total_weekend_ot_hours: dailyRows.reduce((sum, row) => sum + (row.weekend_ot_hours || 0), 0),
+          total_hours: dailyRows.reduce((sum, row) => sum + (row.total_hours || 0), 0),
+          total_regular_pay: dailyRows.reduce((sum, row) => sum + (row.regular_pay || 0), 0),
+          total_weekday_ot_pay: dailyRows.reduce((sum, row) => sum + (row.weekday_ot_pay || 0), 0),
+          total_weekend_ot_pay: dailyRows.reduce((sum, row) => sum + (row.weekend_ot_pay || 0), 0),
+          week_total_pay: dailyRows.reduce((sum, row) => sum + (row.daily_total || 0), 0),
           days: request.include_daily_breakdown !== false ? dailyRows : [],
         };
 
         summaries.push(summary);
       }
 
-      await pool.close();
+      console.log(`[Weekly Report] Generated ${summaries.length} employee summaries`);
       return summaries;
     } catch (error) {
       console.error('Error generating weekly report:', error);

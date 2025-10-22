@@ -12,7 +12,8 @@
     "test:coverage": "jest --coverage",
     "setup:overtime": "ts-node src/scripts/setupOvertimeSchema.ts",
     "create-employee-users": "ts-node src/scripts/createEmployeeUsers.ts",
-    "update-employee-passwords": "ts-node src/scripts/updateEmployeePasswords.ts"
+    "update-employee-passwords": "ts-node src/scripts/updateEmployeePasswords.ts",
+    "populate:pay-configs": "ts-node src/scripts/populateEmployeePayConfigs.ts"
   },
   "keywords": [
     "attendance",

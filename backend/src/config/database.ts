@@ -70,4 +70,5 @@ export const closeConnection = async (): Promise<void> => {
 
 // Also export getLocalConnection for convenience
 export { getLocalConnection, closeLocalConnection } from './localDatabase';
+export { getApicConnection, closeApicConnection } from './apicDatabase';
 export { sql };

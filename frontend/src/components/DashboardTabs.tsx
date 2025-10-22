@@ -3,7 +3,7 @@
  * Main dashboard with navbar navigation
  */
 
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import Navbar from './Navbar';
 import Dashboard from './Dashboard';
@@ -11,20 +11,45 @@ import WeeklyCalendar from './WeeklyCalendar';
 import WeeklyReport from './WeeklyReport';
 import OvertimeSettings from './OvertimeSettings';
 import EmployeeManagement from './EmployeeManagement';
+import AdminUsers from './AdminUsers';
 import Profile from './Profile';
 import './DashboardTabs.css';
 
-type ViewType = 'attendance' | 'calendar' | 'report' | 'settings' | 'create' | 'profile';
+type ViewType = 'attendance' | 'calendar' | 'report' | 'settings' | 'create' | 'profile' | 'users';
 
 const DashboardTabs: React.FC = () => {
   const { user } = useAuth();
-  const [activeView, setActiveView] = useState<ViewType>(
-    user?.role === 'employee' ? 'calendar' : 'attendance'
-  );
+
+  const allowedViewsForRole = (role?: string): ViewType[] => {
+    if (role === 'admin') return ['attendance', 'calendar', 'report', 'settings', 'create', 'users', 'profile'];
+    if (role === 'supervisor') return ['attendance', 'calendar', 'report', 'profile'];
+    return ['calendar', 'report', 'profile'];
+  };
+
+  const initialView = useMemo(() => {
+    const stored = localStorage.getItem('dashboardActiveView') as ViewType | null;
+    const allowed = allowedViewsForRole(user?.role);
+    if (stored && allowed.includes(stored)) return stored;
+    return user?.role === 'employee' ? 'calendar' : 'attendance';
+  }, [user?.role]);
+
+  const [activeView, setActiveView] = useState<ViewType>(initialView);
 
   const isAdmin = user?.role === 'admin';
   const isSupervisor = user?.role === 'supervisor';
   const isEmployee = user?.role === 'employee';
+
+  useEffect(() => {
+    localStorage.setItem('dashboardActiveView', activeView);
+  }, [activeView]);
+
+  useEffect(() => {
+    const allowed = allowedViewsForRole(user?.role);
+    if (!allowed.includes(activeView)) {
+      setActiveView(user?.role === 'employee' ? 'calendar' : 'attendance');
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.role]);
 
   const renderContent = () => {
     switch (activeView) {
@@ -65,10 +90,12 @@ const DashboardTabs: React.FC = () => {
         if (!isAdmin) {
           return <div className="access-denied">Employee creation is restricted to administrators only.</div>;
         }
-        return <EmployeeManagement />;
+        return <EmployeeManagement onBack={() => setActiveView('attendance')} />;
       
       case 'profile':
         return <Profile />;
+      case 'users':
+        return <AdminUsers />;
       
       default:
         return <Dashboard />;

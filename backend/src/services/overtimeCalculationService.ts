@@ -51,12 +51,38 @@ export class OvertimeCalculationService {
       }
     }
 
-    // Calculate pay for each bucket
+    // Calculate pay for each bucket based on pay type
     const rates = this.calculateRates(config);
     
-    const regular_pay = (regular_minutes / 60) * rates.regular;
-    const weekday_ot_pay = (weekday_ot_minutes / 60) * rates.weekday_ot;
-    const weekend_ot_pay = (weekend_ot_minutes / 60) * rates.weekend_ot;
+    let regular_pay = 0;
+    let weekday_ot_pay = 0;
+    let weekend_ot_pay = 0;
+    
+    if (config.pay_type === 'Hourly') {
+      // Hourly: Pay per hour
+      regular_pay = (regular_minutes / 60) * rates.regular;
+      weekday_ot_pay = (weekday_ot_minutes / 60) * rates.weekday_ot;
+      weekend_ot_pay = (weekend_ot_minutes / 60) * rates.weekend_ot;
+    } else if (config.pay_type === 'Daily') {
+      // Daily: Pay per day (8 hours = 1 day)
+      const hoursPerDay = 8;
+      const regularDays = regular_minutes / (hoursPerDay * 60);
+      const weekdayOTDays = weekday_ot_minutes / (hoursPerDay * 60);
+      const weekendOTDays = weekend_ot_minutes / (hoursPerDay * 60);
+      
+      regular_pay = regularDays * (config.daily_rate || 0);
+      weekday_ot_pay = weekdayOTDays * (config.daily_rate || 0) * (config.weekday_ot_multiplier || 1.5);
+      weekend_ot_pay = weekendOTDays * (config.daily_rate || 0) * (config.weekend_ot_multiplier || 2.0);
+    } else if (config.pay_type === 'Monthly') {
+      // Monthly: Convert to hourly based on standard month (22 working days, 8 hours/day = 176 hours)
+      const monthlyHours = 176;
+      const hourlyFromMonthly = (config.monthly_salary || 0) / monthlyHours;
+      
+      regular_pay = (regular_minutes / 60) * hourlyFromMonthly;
+      weekday_ot_pay = (weekday_ot_minutes / 60) * hourlyFromMonthly * (config.weekday_ot_multiplier || 1.5);
+      weekend_ot_pay = (weekend_ot_minutes / 60) * hourlyFromMonthly * (config.weekend_ot_multiplier || 2.0);
+    }
+    
     const total_pay = regular_pay + weekday_ot_pay + weekend_ot_pay;
 
     return {
@@ -125,10 +151,34 @@ export class OvertimeCalculationService {
   /**
    * Parse time string (HH:MM:SS or HH:MM) and apply to date
    */
-  parseTimeOnDate(date: Date, timeStr: string): Date {
-    const [hours, minutes, seconds = '0'] = timeStr.split(':').map(Number);
+  parseTimeOnDate(date: Date, timeVal: unknown): Date {
     const result = new Date(date);
-    result.setHours(hours, minutes, parseInt(seconds.toString()), 0);
+    let hours = 0;
+    let minutes = 0;
+    let seconds = 0;
+
+    if (timeVal instanceof Date) {
+      hours = timeVal.getHours();
+      minutes = timeVal.getMinutes();
+      seconds = timeVal.getSeconds();
+    } else if (typeof timeVal === 'string') {
+      const parts = timeVal.split(':');
+      hours = parseInt(parts[0] || '0', 10) || 0;
+      minutes = parseInt(parts[1] || '0', 10) || 0;
+      seconds = parseInt(parts[2] || '0', 10) || 0;
+    } else if (typeof timeVal === 'number') {
+      // Interpret number as minutes from midnight
+      hours = Math.floor(timeVal / 60);
+      minutes = Math.floor(timeVal % 60);
+      seconds = 0;
+    } else {
+      // Fallback to start of day if undefined/null/unknown
+      hours = 0;
+      minutes = 0;
+      seconds = 0;
+    }
+
+    result.setHours(hours, minutes, seconds, 0);
     return result;
   }
 
@@ -157,32 +207,35 @@ export class OvertimeCalculationService {
 
   /**
    * Convert punch records to spans (pair IN/OUT)
+   * Simple mode: First punch = IN, Last punch = OUT
    */
   pairPunchesToSpans(punches: Array<{ punch_time: Date; punch_type: 'IN' | 'OUT' }>): PunchSpan[] {
     const spans: PunchSpan[] = [];
     
+    if (punches.length === 0) {
+      return spans;
+    }
+
     // Sort by time
     const sorted = [...punches].sort(
       (a, b) => a.punch_time.getTime() - b.punch_time.getTime()
     );
 
-    let currentIn: Date | null = null;
-
-    for (const punch of sorted) {
-      if (punch.punch_type === 'IN') {
-        currentIn = punch.punch_time;
-      } else if (punch.punch_type === 'OUT' && currentIn) {
-        const duration_minutes = Math.round(
-          (punch.punch_time.getTime() - currentIn.getTime()) / (1000 * 60)
-        );
-        
+    // Simple approach: First punch = IN, Last punch = OUT
+    if (sorted.length >= 2) {
+      const firstPunch = sorted[0].punch_time;
+      const lastPunch = sorted[sorted.length - 1].punch_time;
+      
+      const duration_minutes = Math.round(
+        (lastPunch.getTime() - firstPunch.getTime()) / (1000 * 60)
+      );
+      
+      if (duration_minutes > 0) {
         spans.push({
-          punch_in: currentIn,
-          punch_out: punch.punch_time,
+          punch_in: firstPunch,
+          punch_out: lastPunch,
           duration_minutes,
         });
-        
-        currentIn = null;
       }
     }
 

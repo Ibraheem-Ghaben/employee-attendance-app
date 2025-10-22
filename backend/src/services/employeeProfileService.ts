@@ -1,4 +1,4 @@
-import { getConnection, sql } from '../config/database';
+import { getLocalConnection, sql } from '../config/localDatabase';
 import {
   EmployeeProfile,
   EmployeeAttendanceRecord,
@@ -7,29 +7,43 @@ import {
 } from '../types/employeeProfile';
 
 export class EmployeeProfileService {
-  /**
-   * Get employee profile by employee code
-   */
+  private localEmployeeCache: string[] | null = null;
+
+  private async getLocalEmployeeCodes(): Promise<string[]> {
+    if (this.localEmployeeCache) {
+      return this.localEmployeeCache;
+    }
+    const pool = await getLocalConnection();
+    const result = await pool
+      .request()
+      .query('SELECT employee_code FROM dbo.Users WHERE employee_code IS NOT NULL');
+    this.localEmployeeCache = result.recordset.map((row: any) => row.employee_code);
+    return this.localEmployeeCache;
+  }
+
   async getEmployeeProfile(employeeCode: string): Promise<EmployeeProfile | null> {
     try {
-      const pool = await getConnection();
+      const pool = await getLocalConnection();
 
       const query = `
         SELECT TOP 1
-          Company_Code,
-          Branch_Code,
-          Employee_Code,
-          Employee_Name_1_Arabic,
-          Employee_Name_1_English,
-          first_Last_name_a,
-          first_Last_name_eng,
-          Site_1_Arabic,
-          Site_1_English,
-          Card_ID
-        FROM [Laserfiche].[dbo].[Laserfiche]
-        WHERE Employee_Code = @employeeCode
-          AND Company_Code = 'MSS'
-          AND Branch_Code = 'MSS'
+          'MSS' AS Company_Code,
+          'MSS' AS Branch_Code,
+          employee.employee_code AS Employee_Code,
+          employee.full_name AS Employee_Name_1_Arabic,
+          employee.full_name AS Employee_Name_1_English,
+          employee.full_name AS first_Last_name_a,
+          employee.full_name AS first_Last_name_eng,
+          site.clock_description AS Site_1_Arabic,
+          site.clock_description AS Site_1_English,
+          employee.employee_code AS Card_ID
+        FROM dbo.Users AS employee
+        LEFT JOIN (
+          SELECT employee_code, MAX(clock_description) AS clock_description
+          FROM dbo.SyncedAttendance
+          GROUP BY employee_code
+        ) AS site ON site.employee_code = employee.employee_code
+        WHERE employee.employee_code = @employeeCode
       `;
 
       const result = await pool
@@ -48,9 +62,6 @@ export class EmployeeProfileService {
     }
   }
 
-  /**
-   * Get employee attendance records
-   */
   async getEmployeeAttendance(
     employeeCode: string,
     startDate?: string,
@@ -58,40 +69,49 @@ export class EmployeeProfileService {
     limit: number = 100
   ): Promise<EmployeeAttendanceRecord[]> {
     try {
-      const pool = await getConnection();
+      const pool = await getLocalConnection();
+
+      const localCodes = await this.getLocalEmployeeCodes();
+      if (!localCodes.includes(employeeCode)) {
+        return [];
+      }
 
       let query = `
         SELECT TOP ${limit}
-          record.clock_id,
-          record.InOutMode,
-          record.punch_time
-        FROM [Laserfiche].[dbo].[Laserfiche] as employee
-        LEFT JOIN [MSS_TA].[dbo].[final_attendance_records] as record
-          ON record.EnrollNumber = employee.Card_ID
-        WHERE employee.Employee_Code = @employeeCode
-          AND employee.Company_Code = 'MSS'
-          AND employee.Branch_Code = 'MSS'
-          AND record.clock_id = 3
+          attendance.clock_id,
+          attendance.in_out_mode,
+          attendance.punch_time,
+          attendance.clock_description,
+          user.full_name
+        FROM dbo.SyncedAttendance AS attendance
+        LEFT JOIN dbo.Users AS usr
+          ON usr.employee_code = attendance.employee_code
+        WHERE attendance.employee_code = @employeeCode
       `;
 
       const request = pool.request().input('employeeCode', sql.VarChar, employeeCode);
 
       if (startDate) {
-        query += ' AND record.punch_time >= @startDate';
-        request.input('startDate', sql.DateTime, new Date(startDate));
+        query += ' AND attendance.punch_time >= @startDate';
+        request.input('startDate', sql.DateTime2, new Date(startDate));
       }
 
       if (endDate) {
-        query += ' AND record.punch_time <= @endDate';
-        request.input('endDate', sql.DateTime, new Date(endDate));
+        query += ' AND attendance.punch_time <= @endDate';
+        request.input('endDate', sql.DateTime2, new Date(endDate));
       }
 
-      query += ' ORDER BY record.punch_time DESC';
+      query += ' ORDER BY attendance.punch_time DESC';
 
       const result = await request.query(query);
-      await pool.close();
 
-      return result.recordset as EmployeeAttendanceRecord[];
+      return result.recordset.map((row: any) => ({
+        clock_id: row.clock_id,
+        InOutMode: row.in_out_mode,
+        punch_time: row.punch_time,
+        full_name: row.full_name || employeeCode,
+        clock_description: row.clock_description,
+      }));
     } catch (error) {
       console.error('Error fetching employee attendance:', error);
       throw error;
@@ -148,7 +168,7 @@ export class EmployeeProfileService {
    */
   async getAllEmployees(): Promise<EmployeeProfile[]> {
     try {
-      const pool = await getConnection();
+      const pool = await getLocalConnection();
 
       const query = `
         SELECT DISTINCT
@@ -162,15 +182,13 @@ export class EmployeeProfileService {
           Site_1_Arabic,
           Site_1_English,
           Card_ID
-        FROM [Laserfiche].[dbo].[Laserfiche]
+        FROM dbo.Users
         WHERE Company_Code = 'MSS'
           AND Branch_Code = 'MSS'
         ORDER BY Employee_Code
       `;
 
       const result = await pool.request().query(query);
-      await pool.close();
-
       return result.recordset as EmployeeProfile[];
     } catch (error) {
       console.error('Error fetching all employees:', error);
@@ -192,85 +210,89 @@ export class EmployeeProfileService {
     inOutMode?: string
   ): Promise<PaginatedEmployeeAttendance> {
     try {
-      const pool = await getConnection();
+      const pool = await getLocalConnection();
       const offset = (page - 1) * pageSize;
 
-      // Build WHERE clause
-      let whereClause = `
-        WHERE employee.Company_Code = 'MSS' 
-          AND employee.Branch_Code = 'MSS' 
-          AND record.clock_id = 3
-      `;
-      
+      const localUsers = await this.getLocalEmployeeCodes();
+      if (localUsers.length === 0) {
+        return {
+          data: [],
+          pagination: {
+            currentPage: page,
+            pageSize,
+            totalRecords: 0,
+            totalPages: 0,
+            hasNextPage: false,
+            hasPreviousPage: false,
+          },
+        };
+      }
+
+      let whereClause = 'WHERE attendance.employee_code IN (SELECT employee_code FROM dbo.Users WHERE is_active = 1)';
       const request = pool.request();
 
       if (employeeCode) {
-        whereClause += ' AND employee.Employee_Code = @employeeCode';
+        whereClause += ' AND attendance.employee_code = @employeeCode';
         request.input('employeeCode', sql.VarChar, employeeCode);
       }
 
       if (employeeName) {
-        whereClause += ` AND (employee.Employee_Name_1_English LIKE @employeeName 
-                             OR employee.Employee_Name_1_Arabic LIKE @employeeName
-                             OR employee.first_Last_name_eng LIKE @employeeName)`;
-        request.input('employeeName', sql.VarChar, `%${employeeName}%`);
+        whereClause += ' AND usr.full_name LIKE @employeeName';
+        request.input('employeeName', sql.NVarChar, `%${employeeName}%`);
       }
 
       if (site) {
-        whereClause += ` AND (employee.Site_1_English = @site OR employee.Site_1_Arabic = @site)`;
-        request.input('site', sql.VarChar, site);
+        whereClause += ' AND attendance.clock_description = @site';
+        request.input('site', sql.NVarChar, site);
       }
 
       if (inOutMode !== undefined && inOutMode !== '') {
-        whereClause += ' AND record.InOutMode = @inOutMode';
-        request.input('inOutMode', sql.Int, parseInt(inOutMode));
+        whereClause += ' AND attendance.in_out_mode = @inOutMode';
+        request.input('inOutMode', sql.Int, parseInt(inOutMode, 10));
       }
 
       if (startDate) {
-        whereClause += ' AND record.punch_time >= @startDate';
-        request.input('startDate', sql.DateTime, new Date(startDate));
+        whereClause += ' AND attendance.punch_time >= @startDate';
+        request.input('startDate', sql.DateTime2, new Date(startDate));
       }
 
       if (endDate) {
-        whereClause += ' AND record.punch_time <= @endDate';
-        request.input('endDate', sql.DateTime, new Date(endDate));
+        whereClause += ' AND attendance.punch_time <= @endDate';
+        request.input('endDate', sql.DateTime2, new Date(endDate));
       }
 
-      // Query to get total count
       const countQuery = `
-        SELECT COUNT(*) as totalRecords
-        FROM [Laserfiche].[dbo].[Laserfiche] as employee
-        LEFT JOIN [MSS_TA].[dbo].[final_attendance_records] as record
-          ON record.EnrollNumber = employee.Card_ID
+        SELECT COUNT(*) AS totalRecords
+        FROM dbo.SyncedAttendance AS attendance
+        LEFT JOIN dbo.Users AS usr
+          ON usr.employee_code = attendance.employee_code
         ${whereClause}
       `;
 
       const countResult = await request.query(countQuery);
-      const totalRecords = countResult.recordset[0].totalRecords;
+      const totalRecords = countResult.recordset[0]?.totalRecords ?? 0;
       const totalPages = Math.ceil(totalRecords / pageSize);
 
-      // Query to get paginated data
       const dataQuery = `
-        SELECT  
-          employee.[Company_Code],
-          employee.[Branch_Code],
-          employee.[Employee_Code],
-          employee.[Employee_Name_1_Arabic],
-          employee.[Employee_Name_1_English],
-          employee.[first_Last_name_a],
-          employee.[first_Last_name_eng],
-          employee.[Site_1_Arabic],
-          employee.[Site_1_English],
-          record.clock_id,
-          record.InOutMode,
-          record.punch_time
-        FROM [Laserfiche].[dbo].[Laserfiche] as employee
-        LEFT JOIN [MSS_TA].[dbo].[final_attendance_records] as record
-          ON record.EnrollNumber = employee.Card_ID
+        SELECT
+          'MSS' AS Company_Code,
+          'MSS' AS Branch_Code,
+        attendance.employee_code AS Employee_Code,
+        usr.full_name AS Employee_Name_1_English,
+        usr.full_name AS Employee_Name_1_Arabic,
+        usr.full_name AS first_Last_name_eng,
+        usr.full_name AS first_Last_name_a,
+          attendance.clock_id,
+          attendance.clock_description AS Site_1_English,
+          attendance.clock_description AS Site_1_Arabic,
+          attendance.in_out_mode AS InOutMode,
+          attendance.punch_time
+        FROM dbo.SyncedAttendance AS attendance
+        LEFT JOIN dbo.Users AS usr
+          ON usr.employee_code = attendance.employee_code
         ${whereClause}
-        ORDER BY record.punch_time DESC
-        OFFSET @offset ROWS
-        FETCH NEXT @pageSize ROWS ONLY
+        ORDER BY attendance.punch_time DESC
+        OFFSET @offset ROWS FETCH NEXT @pageSize ROWS ONLY
       `;
 
       request.input('offset', sql.Int, offset);
@@ -282,9 +304,9 @@ export class EmployeeProfileService {
         data: dataResult.recordset,
         pagination: {
           currentPage: page,
-          pageSize: pageSize,
-          totalRecords: totalRecords,
-          totalPages: totalPages,
+          pageSize,
+          totalRecords,
+          totalPages,
           hasNextPage: page < totalPages,
           hasPreviousPage: page > 1,
         },
@@ -304,47 +326,53 @@ export class EmployeeProfileService {
     endDate?: string
   ): Promise<any[]> {
     try {
-      const pool = await getConnection();
+      const pool = await getLocalConnection();
+
+      const localUsers = await this.getLocalEmployeeCodes();
+      if (localUsers.length === 0) {
+        return [];
+      }
+
+      const quotedCodes = localUsers
+        .map((code) => `'${code.replace(/'/g, "''")}'`)
+        .join(',');
 
       let query = `
         SELECT  
-          employee.[Company_Code],
-          employee.[Branch_Code],
-          employee.[Employee_Code],
-          employee.[Employee_Name_1_English],
-          employee.[Employee_Name_1_Arabic],
-          employee.[first_Last_name_eng],
-          employee.[Site_1_English],
-          employee.[Site_1_Arabic],
-          record.clock_id,
-          record.InOutMode,
-          record.punch_time
-        FROM [Laserfiche].[dbo].[Laserfiche] as employee
-        LEFT JOIN [MSS_TA].[dbo].[final_attendance_records] as record
-          ON record.EnrollNumber = employee.Card_ID
-        WHERE employee.Company_Code = 'MSS' 
-          AND employee.Branch_Code = 'MSS' 
-          AND record.clock_id = 3
+          'MSS' AS [Company_Code],
+          'MSS' AS [Branch_Code],
+          usr.employee_code AS [Employee_Code],
+          usr.full_name AS [Employee_Name_1_English],
+          usr.full_name AS [Employee_Name_1_Arabic],
+          usr.full_name AS [first_Last_name_eng],
+          attendance.clock_id,
+        attendance.clock_description AS [Site_1_English],
+        attendance.clock_description AS [Site_1_Arabic],
+          attendance.in_out_mode,
+          attendance.punch_time
+        FROM dbo.SyncedAttendance AS attendance
+        LEFT JOIN dbo.Users AS usr ON usr.employee_code = attendance.employee_code
+        WHERE attendance.employee_code IN (${quotedCodes})
       `;
 
       const request = pool.request();
 
       if (employeeCode) {
-        query += ' AND employee.Employee_Code = @employeeCode';
+        query += ' AND user.employee_code = @employeeCode';
         request.input('employeeCode', sql.VarChar, employeeCode);
       }
 
       if (startDate) {
-        query += ' AND record.punch_time >= @startDate';
-        request.input('startDate', sql.DateTime, new Date(startDate));
+        query += ' AND attendance.punch_time >= @startDate';
+        request.input('startDate', sql.DateTime2, new Date(startDate));
       }
 
       if (endDate) {
-        query += ' AND record.punch_time <= @endDate';
-        request.input('endDate', sql.DateTime, new Date(endDate));
+        query += ' AND attendance.punch_time <= @endDate';
+        request.input('endDate', sql.DateTime2, new Date(endDate));
       }
 
-      query += ' ORDER BY record.punch_time DESC';
+      query += ' ORDER BY attendance.punch_time DESC';
 
       const result = await request.query(query);
 
@@ -355,87 +383,96 @@ export class EmployeeProfileService {
     }
   }
 
-  /**
-   * Get unique sites from MSS_TA database
-   */
-  async getUniqueSites(): Promise<string[]> {
-    try {
-      const pool = await getConnection();
-
-      const query = `
-        SELECT DISTINCT Site_1_English
-        FROM [Laserfiche].[dbo].[Laserfiche]
-        WHERE Company_Code = 'MSS' 
-          AND Branch_Code = 'MSS'
-          AND Site_1_English IS NOT NULL
-          AND Site_1_English != ''
-        ORDER BY Site_1_English
-      `;
-
-      const result = await pool.request().query(query);
-
-      return result.recordset.map((row: any) => row.Site_1_English);
-    } catch (error) {
-      console.error('Error fetching unique sites:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Get dashboard statistics from MSS_TA database
-   */
   async getDashboardStatistics(
     employeeCode?: string,
     startDate?: string,
     endDate?: string
-  ): Promise<any> {
-    try {
-      const pool = await getConnection();
+  ): Promise<{ 
+    totalRecords: number; 
+    totalCheckIns: number; 
+    totalCheckOuts: number;
+    totalEmployees: number;
+    totalSites: number;
+    lastPunchTime?: string;
+  }> {
+    const pool = await getLocalConnection();
 
-      let whereClause = `
-        WHERE employee.Company_Code = 'MSS' 
-          AND employee.Branch_Code = 'MSS' 
-          AND record.clock_id = 3
-      `;
-
-      const request = pool.request();
-
-      if (employeeCode) {
-        whereClause += ' AND employee.Employee_Code = @employeeCode';
-        request.input('employeeCode', sql.VarChar, employeeCode);
-      }
-
-      if (startDate) {
-        whereClause += ' AND record.punch_time >= @startDate';
-        request.input('startDate', sql.DateTime, new Date(startDate));
-      }
-
-      if (endDate) {
-        whereClause += ' AND record.punch_time <= @endDate';
-        request.input('endDate', sql.DateTime, new Date(endDate));
-      }
-
-      const query = `
-        SELECT 
-          COUNT(*) as totalRecords,
-          COUNT(DISTINCT employee.Employee_Code) as totalEmployees,
-          SUM(CASE WHEN record.InOutMode = 0 THEN 1 ELSE 0 END) as totalCheckIns,
-          SUM(CASE WHEN record.InOutMode = 1 THEN 1 ELSE 0 END) as totalCheckOuts,
-          COUNT(DISTINCT employee.Site_1_English) as totalSites,
-          MAX(record.punch_time) as lastPunchTime,
-          MIN(record.punch_time) as firstPunchTime
-        FROM [Laserfiche].[dbo].[Laserfiche] as employee
-        LEFT JOIN [MSS_TA].[dbo].[final_attendance_records] as record
-          ON record.EnrollNumber = employee.Card_ID
-        ${whereClause}
-      `;
-
-      const result = await request.query(query);
-
-      return result.recordset[0];
-    } catch (error) {
-      console.error('Error fetching dashboard statistics:', error);
-      throw error;
+    const localUsers = await this.getLocalEmployeeCodes();
+    if (localUsers.length === 0) {
+      return { 
+        totalRecords: 0, 
+        totalCheckIns: 0, 
+        totalCheckOuts: 0,
+        totalEmployees: 0,
+        totalSites: 0,
+        lastPunchTime: undefined
+      };
     }
+
+    const quotedCodes = localUsers
+      .map((code) => `'${code.replace(/'/g, "''")}'`)
+      .join(',');
+
+    let whereClause = `
+      WHERE attendance.employee_code IN (${quotedCodes})
+    `;
+
+    const request = pool.request();
+
+    if (employeeCode) {
+      whereClause += ' AND attendance.employee_code = @employeeCode';
+      request.input('employeeCode', sql.VarChar, employeeCode);
+    }
+
+    if (startDate) {
+      whereClause += ' AND attendance.punch_time >= @startDate';
+      request.input('startDate', sql.DateTime2, new Date(startDate));
+    }
+
+    if (endDate) {
+      whereClause += ' AND attendance.punch_time <= @endDate';
+      request.input('endDate', sql.DateTime2, new Date(endDate));
+    }
+
+    const query = `
+      SELECT
+        COUNT(*) AS totalRecords,
+        SUM(CASE WHEN attendance.in_out_mode = 0 THEN 1 ELSE 0 END) AS totalCheckIns,
+        SUM(CASE WHEN attendance.in_out_mode = 1 THEN 1 ELSE 0 END) AS totalCheckOuts,
+        COUNT(DISTINCT attendance.employee_code) AS totalEmployees,
+        COUNT(DISTINCT attendance.clock_description) AS totalSites,
+        MAX(attendance.punch_time) AS lastPunchTime
+      FROM dbo.SyncedAttendance AS attendance
+      ${whereClause}
+    `;
+
+    const result = await request.query(query);
+    const row = result.recordset[0];
+
+    return {
+      totalRecords: row?.totalRecords || 0,
+      totalCheckIns: row?.totalCheckIns || 0,
+      totalCheckOuts: row?.totalCheckOuts || 0,
+      totalEmployees: row?.totalEmployees || 0,
+      totalSites: row?.totalSites || 0,
+      lastPunchTime: row?.lastPunchTime ? row.lastPunchTime.toISOString() : undefined,
+    };
+  }
+
+  async getUniqueSites(): Promise<string[]> {
+    const pool = await getLocalConnection();
+
+    const query = `
+      SELECT DISTINCT clock_description
+      FROM dbo.SyncedAttendance
+      WHERE clock_description IS NOT NULL
+        AND clock_description != ''
+      ORDER BY clock_description
+    `;
+
+    const result = await pool.request().query(query);
+    return result.recordset
+      .map((row: any) => row.clock_description)
+      .filter((desc: string) => !!desc);
   }
 }

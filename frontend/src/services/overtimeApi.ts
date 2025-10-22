@@ -136,6 +136,19 @@ export const getTimesheetDays = async (
   return response.data.data;
 };
 
+export const getPunches = async (
+  employeeCode: string,
+  fromDate: string,
+  toDate: string
+): Promise<Array<{ punch_time: string; punch_type: 'IN' | 'OUT' }>> => {
+  const params = {
+    from_date: fromDate,
+    to_date: toDate,
+  };
+  const response = await api.get(`/overtime/punches/${employeeCode}`, { params });
+  return response.data.data;
+};
+
 // ============================================================
 // Helper Functions
 // ============================================================

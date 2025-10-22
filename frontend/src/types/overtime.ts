@@ -9,10 +9,13 @@ export type DayOfWeek = 'Sunday' | 'Monday' | 'Tuesday' | 'Wednesday' | 'Thursda
 export interface EmployeePayConfig {
   id?: number;
   employee_code: string;
+  employee_name?: string;
   
-  // Pay Type
+  // Pay Type & Rates
   pay_type: PayType;
   hourly_rate_regular: number;
+  daily_rate?: number;
+  monthly_salary?: number;
   
   // Weekday Overtime Configuration
   weekday_ot_rate_type: RateType;

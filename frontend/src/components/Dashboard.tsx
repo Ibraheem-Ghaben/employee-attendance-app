@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { employeeService } from '../services/api';
@@ -55,8 +55,29 @@ const Dashboard: React.FC = () => {
         site || undefined,
         inOutMode || undefined
       );
-      setEmployees(response.data);
-      setPagination(response.pagination);
+      setEmployees(response.data ?? []);
+
+      const responsePagination = response.pagination;
+
+      const totalRecords = responsePagination?.totalRecords ?? response.data?.length ?? 0;
+      const currentPageValue = responsePagination?.currentPage ?? currentPage;
+      const pageSizeValue = responsePagination?.pageSize ?? pageSize;
+      const computedTotalPages = responsePagination?.totalPages;
+
+      const totalPages = computedTotalPages && computedTotalPages > 0
+        ? computedTotalPages
+        : Math.max(Math.ceil(totalRecords / pageSizeValue), 1);
+
+      const resolvedPagination: PaginationInfo = {
+        currentPage: currentPageValue,
+        pageSize: pageSizeValue,
+        totalRecords,
+        totalPages,
+        hasNextPage: responsePagination?.hasNextPage ?? currentPageValue < totalPages,
+        hasPreviousPage: responsePagination?.hasPreviousPage ?? currentPageValue > 1,
+      };
+
+      setPagination(resolvedPagination);
     } catch (err: any) {
       if (err.response?.status === 401 || err.response?.status === 403) {
         setError('Session expired or unauthorized. Please login again.');
@@ -64,7 +85,9 @@ const Dashboard: React.FC = () => {
       } else {
         setError('Failed to fetch employee data.');
       }
-      console.error('Error:', err);
+      console.error('Error fetching employees:', err);
+      setEmployees([]);
+      setPagination(null);
     } finally {
       setLoading(false);
     }
@@ -90,6 +113,7 @@ const Dashboard: React.FC = () => {
       setStatistics(stats);
     } catch (error) {
       console.error('Error fetching statistics:', error);
+      setStatistics(null);
     } finally {
       setStatsLoading(false);
     }
@@ -148,16 +172,58 @@ const Dashboard: React.FC = () => {
     }
   };
 
+  const utcDateTimeFormatter = useMemo(
+    () =>
+      new Intl.DateTimeFormat('en-US', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true,
+        timeZone: 'UTC',
+      }),
+    []
+  );
+
   const formatDateTime = (dateString: string) => {
+    if (!dateString) return 'N/A';
     try {
       const date = new Date(dateString);
-      return date.toLocaleString();
+      if (Number.isNaN(date.getTime())) {
+        return dateString;
+      }
+      return utcDateTimeFormatter.format(date).replace(',', '');
     } catch {
       return dateString;
     }
   };
 
   const hasActiveFilters = employeeCode || employeeName || site || inOutMode || startDate || endDate;
+
+  const totalRecordsDisplay = useMemo(() => {
+    const total = pagination?.totalRecords;
+    if (typeof total === 'number' && !Number.isNaN(total)) {
+      return total.toLocaleString();
+    }
+    return employees.length.toLocaleString();
+  }, [pagination, employees]);
+
+  const currentPageDisplay = useMemo(() => {
+    const current = pagination?.currentPage;
+    if (typeof current === 'number' && current > 0) {
+      return current;
+    }
+    return 1;
+  }, [pagination]);
+
+  const totalPagesDisplay = useMemo(() => {
+    const total = pagination?.totalPages;
+    if (typeof total === 'number' && total > 0) {
+      return total;
+    }
+    return 1;
+  }, [pagination]);
 
   return (
     <div className="dashboard-content-only">
@@ -264,11 +330,11 @@ const Dashboard: React.FC = () => {
         <div className="stats-bar">
           <div className="stat-item">
             <span className="stat-label">📊 Total Records:</span>
-            <span className="stat-value">{pagination?.totalRecords.toLocaleString() || 0}</span>
+            <span className="stat-value">{totalRecordsDisplay}</span>
           </div>
           <div className="stat-item">
             <span className="stat-label">📄 Current Page:</span>
-            <span className="stat-value">{pagination?.currentPage || 1} / {pagination?.totalPages || 1}</span>
+            <span className="stat-value">{currentPageDisplay} / {totalPagesDisplay}</span>
           </div>
           <div className="stat-item">
             <span className="stat-label">🏢 Company:</span>

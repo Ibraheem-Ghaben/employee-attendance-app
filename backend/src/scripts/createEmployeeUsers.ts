@@ -16,30 +16,38 @@ async function createEmployeeUsers() {
     console.log('============================================================\n');
 
     // Step 1: Connect to MSS_TA and fetch all employees
-    console.log('📊 Step 1: Fetching all employees from MSS_TA database...');
+    const allowedClockIds = (process.env.PUNCH_CLOCK_IDS || '3,10')
+      .split(',')
+      .map((id) => parseInt(id.trim(), 10))
+      .filter((id) => !Number.isNaN(id));
+
+    console.log('📊 Step 1: Fetching employees from MSS_TA database filtered by clock IDs:', allowedClockIds.join(', '));
     const mssPool = await getConnection();
     
     const employeesQuery = `
       SELECT DISTINCT
-        Employee_Code,
-        Employee_Name_1_English,
-        Employee_Name_1_Arabic,
-        first_Last_name_eng,
-        Company_Code,
-        Branch_Code,
-        Site_1_English
-      FROM [Laserfiche].[dbo].[Laserfiche]
-      WHERE Company_Code = 'MSS'
-        AND Branch_Code = 'MSS'
-        AND Employee_Code IS NOT NULL
-        AND Employee_Code != ''
-      ORDER BY Employee_Code
+        employee.Employee_Code,
+        employee.Employee_Name_1_English,
+        employee.Employee_Name_1_Arabic,
+        employee.first_Last_name_eng,
+        employee.Company_Code,
+        employee.Branch_Code,
+        employee.Site_1_English
+      FROM [Laserfiche].[dbo].[Laserfiche] AS employee
+      LEFT JOIN [MSS_TA].[dbo].[final_attendance_records] AS record
+        ON record.EnrollNumber = employee.Card_ID
+      WHERE employee.Company_Code = 'MSS'
+        AND employee.Branch_Code = 'MSS'
+        AND record.clock_id IN (${allowedClockIds.join(',')})
+        AND employee.Employee_Code IS NOT NULL
+        AND employee.Employee_Code <> ''
+      ORDER BY employee.Employee_Code
     `;
 
     const employeesResult = await mssPool.request().query(employeesQuery);
     const employees = employeesResult.recordset;
 
-    console.log(`✅ Found ${employees.length} employees in MSS_TA database\n`);
+    console.log(`✅ Found ${employees.length} employees matching clock filter\n`);
 
     // Step 2: Connect to local database
     console.log('📊 Step 2: Connecting to local database (AttendanceAuthDB)...');

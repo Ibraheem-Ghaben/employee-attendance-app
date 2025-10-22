@@ -40,13 +40,24 @@ const StatisticsCards: React.FC<StatisticsCardsProps> = ({ stats, loading }) => 
     return null;
   }
 
-  const formatDateTime = (dateString?: string) => {
+  const formatDateTime = (dateString?: string | null) => {
     if (!dateString) return 'N/A';
     try {
-      return new Date(dateString).toLocaleString();
+      const date = new Date(dateString);
+      if (Number.isNaN(date.getTime())) {
+        return 'N/A';
+      }
+      return date.toLocaleString();
     } catch {
       return 'N/A';
     }
+  };
+
+  const safeNumber = (value: number | null | undefined) => {
+    if (typeof value === 'number' && !Number.isNaN(value)) {
+      return value.toLocaleString();
+    }
+    return '0';
   };
 
   return (
@@ -55,7 +66,7 @@ const StatisticsCards: React.FC<StatisticsCardsProps> = ({ stats, loading }) => 
         <div className="stat-icon">📊</div>
         <div className="stat-content">
           <div className="stat-label">Total Records</div>
-          <div className="stat-value">{stats.totalRecords.toLocaleString()}</div>
+          <div className="stat-value">{safeNumber(stats.totalRecords)}</div>
         </div>
       </div>
 
@@ -63,7 +74,7 @@ const StatisticsCards: React.FC<StatisticsCardsProps> = ({ stats, loading }) => 
         <div className="stat-icon">👥</div>
         <div className="stat-content">
           <div className="stat-label">Total Employees</div>
-          <div className="stat-value">{stats.totalEmployees.toLocaleString()}</div>
+          <div className="stat-value">{safeNumber(stats.totalEmployees)}</div>
         </div>
       </div>
 
@@ -71,7 +82,7 @@ const StatisticsCards: React.FC<StatisticsCardsProps> = ({ stats, loading }) => 
         <div className="stat-icon">📥</div>
         <div className="stat-content">
           <div className="stat-label">Check-Ins</div>
-          <div className="stat-value">{stats.totalCheckIns.toLocaleString()}</div>
+          <div className="stat-value">{safeNumber(stats.totalCheckIns)}</div>
         </div>
       </div>
 
@@ -79,7 +90,7 @@ const StatisticsCards: React.FC<StatisticsCardsProps> = ({ stats, loading }) => 
         <div className="stat-icon">📤</div>
         <div className="stat-content">
           <div className="stat-label">Check-Outs</div>
-          <div className="stat-value">{stats.totalCheckOuts.toLocaleString()}</div>
+          <div className="stat-value">{safeNumber(stats.totalCheckOuts)}</div>
         </div>
       </div>
 
@@ -87,7 +98,7 @@ const StatisticsCards: React.FC<StatisticsCardsProps> = ({ stats, loading }) => 
         <div className="stat-icon">🏢</div>
         <div className="stat-content">
           <div className="stat-label">Total Sites</div>
-          <div className="stat-value">{stats.totalSites}</div>
+          <div className="stat-value">{safeNumber(stats.totalSites)}</div>
         </div>
       </div>
 

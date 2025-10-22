@@ -3,9 +3,9 @@
  * Configure employee pay rates and workweek settings
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { EmployeePayConfig, PayType, RateType, DayOfWeek } from '../types/overtime';
-import { getEmployeePayConfig, updateEmployeePayConfig } from '../services/overtimeApi';
+import { getEmployeePayConfig, updateEmployeePayConfig, getAllPayConfigs } from '../services/overtimeApi';
 import './OvertimeSettings.css';
 
 interface OvertimeSettingsProps {
@@ -29,10 +29,15 @@ const OvertimeSettings: React.FC<OvertimeSettingsProps> = ({ employeeCode, isAdm
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [allConfigs, setAllConfigs] = useState<EmployeePayConfig[]>([]);
+  const [employeeMap, setEmployeeMap] = useState<Record<string, string>>({});
+  const [selectedEmployee, setSelectedEmployee] = useState<string>(employeeCode);
 
   // Form state
   const [payType, setPayType] = useState<PayType>('Hourly');
   const [hourlyRateRegular, setHourlyRateRegular] = useState<number>(20.00);
+  const [dailyRate, setDailyRate] = useState<number>(200.00);
+  const [monthlySalary, setMonthlySalary] = useState<number>(5000.00);
   
   const [weekdayOTRateType, setWeekdayOTRateType] = useState<RateType>('multiplier');
   const [weekdayOTRate, setWeekdayOTRate] = useState<number>(0);
@@ -50,19 +55,44 @@ const OvertimeSettings: React.FC<OvertimeSettingsProps> = ({ employeeCode, isAdm
   const [minimumDailyHours, setMinimumDailyHours] = useState<number>(6.0);
 
   useEffect(() => {
+    if (isAdmin) {
+      loadAllConfigs();
+    }
+  }, [isAdmin]);
+
+  useEffect(() => {
     loadConfig();
-  }, [employeeCode]);
+  }, [selectedEmployee]);
 
   const loadConfig = async () => {
     try {
       setLoading(true);
       setError(null);
-      const data = await getEmployeePayConfig(employeeCode);
-      setConfig(data);
+      const targetCode = selectedEmployee || employeeCode;
+      const configResponse = await getEmployeePayConfig(targetCode);
+      if (configResponse && (configResponse as any).employee_name) {
+        setEmployeeMap((prev) => ({ ...prev, [targetCode]: (configResponse as any).employee_name }));
+      }
+      setConfig(configResponse);
       
+      const data = configResponse as any;
       // Populate form
-      setPayType(data.pay_type);
-      setHourlyRateRegular(data.hourly_rate_regular);
+      setPayType(data?.pay_type || 'Hourly');
+      setHourlyRateRegular(
+        typeof data?.hourly_rate_regular === 'number'
+          ? data.hourly_rate_regular
+          : parseFloat(data?.hourly_rate_regular) || 0
+      );
+      setDailyRate(
+        typeof data?.daily_rate === 'number'
+          ? data.daily_rate
+          : parseFloat(data?.daily_rate) || 0
+      );
+      setMonthlySalary(
+        typeof data?.monthly_salary === 'number'
+          ? data.monthly_salary
+          : parseFloat(data?.monthly_salary) || 0
+      );
       
       setWeekdayOTRateType(data.weekday_ot_rate_type);
       setWeekdayOTRate(data.hourly_rate_weekday_ot || 0);
@@ -72,16 +102,41 @@ const OvertimeSettings: React.FC<OvertimeSettingsProps> = ({ employeeCode, isAdm
       setWeekendOTRate(data.hourly_rate_weekend_ot || 0);
       setWeekendOTMultiplier(data.weekend_ot_multiplier || 2.0);
       
-      setWeekStart(data.week_start);
-      setWeekendDays(data.weekend_days.split(','));
-      setWorkdayStart(data.workday_start.substring(0, 5));
-      setWorkdayEnd(data.workday_end.substring(0, 5));
-      setOtStartTime(data.ot_start_time_on_workdays.substring(0, 5));
-      setMinimumDailyHours(data.minimum_daily_hours_for_pay);
+      setWeekStart((data?.week_start as DayOfWeek) || 'Sunday');
+      setWeekendDays((data?.weekend_days || 'Friday,Saturday').split(','));
+      setWorkdayStart((data?.workday_start || '09:00:00').substring(0, 5));
+      setWorkdayEnd((data?.workday_end || '17:00:00').substring(0, 5));
+      setOtStartTime((data?.ot_start_time_on_workdays || '17:00:00').substring(0, 5));
+      setMinimumDailyHours(
+        typeof data?.minimum_daily_hours_for_pay === 'number'
+          ? data.minimum_daily_hours_for_pay
+          : parseFloat(data?.minimum_daily_hours_for_pay) || 0
+      );
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to load configuration');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadAllConfigs = async () => {
+    try {
+      const list = await getAllPayConfigs();
+      setAllConfigs(list);
+      const map = list.reduce<Record<string, string>>((acc, cfg) => {
+        const maybeName = (cfg as any).employee_name;
+        if (maybeName) {
+          acc[cfg.employee_code] = maybeName;
+        }
+        return acc;
+      }, {});
+      setEmployeeMap((prev) => ({ ...map, ...prev }));
+      // If admin and no selection yet, set to first employee
+      if (!selectedEmployee && list.length > 0) {
+        setSelectedEmployee(list[0].employee_code);
+      }
+    } catch (err) {
+      // ignore silently in UI
     }
   };
 
@@ -91,9 +146,33 @@ const OvertimeSettings: React.FC<OvertimeSettingsProps> = ({ employeeCode, isAdm
       setError(null);
       setSuccess(null);
 
+      const toHHMMSS = (value: string): string => {
+        // Accepts "HH:MM" or "HH:MM:SS"; normalizes to HH:MM:SS
+        if (!value || typeof value !== 'string') return '00:00:00';
+        const parts = value.split(':');
+        const hh = (parseInt(parts[0], 10) || 0).toString().padStart(2, '0');
+        const mm = (parseInt(parts[1], 10) || 0).toString().padStart(2, '0');
+        const ss = parts.length > 2 ? (parseInt(parts[2], 10) || 0).toString().padStart(2, '0') : '00';
+        return `${hh}:${mm}:${ss}`;
+      };
+
+      const isValidTime = (t: string): boolean => /^\d{2}:\d{2}:\d{2}$/.test(t);
+
+      const workdayStartNorm = toHHMMSS(workdayStart);
+      const workdayEndNorm = toHHMMSS(workdayEnd);
+      const otStartNorm = toHHMMSS(otStartTime);
+
+      if (!isValidTime(workdayStartNorm) || !isValidTime(workdayEndNorm) || !isValidTime(otStartNorm)) {
+        setError("Please provide valid times in HH:MM format.");
+        setSaving(false);
+        return;
+      }
+
       const updateData: Partial<EmployeePayConfig> = {
         pay_type: payType,
         hourly_rate_regular: hourlyRateRegular,
+        daily_rate: dailyRate,
+        monthly_salary: monthlySalary,
         
         weekday_ot_rate_type: weekdayOTRateType,
         hourly_rate_weekday_ot: weekdayOTRateType === 'fixed' ? weekdayOTRate : undefined,
@@ -105,13 +184,19 @@ const OvertimeSettings: React.FC<OvertimeSettingsProps> = ({ employeeCode, isAdm
         
         week_start: weekStart,
         weekend_days: weekendDays.join(','),
-        workday_start: `${workdayStart}:00`,
-        workday_end: `${workdayEnd}:00`,
-        ot_start_time_on_workdays: `${otStartTime}:00`,
+        workday_start: workdayStartNorm,
+        workday_end: workdayEndNorm,
+        ot_start_time_on_workdays: otStartNorm,
         minimum_daily_hours_for_pay: minimumDailyHours,
       };
 
-      await updateEmployeePayConfig(employeeCode, updateData);
+      const targetCode = selectedEmployee || employeeCode;
+      // Debug: verify payload being sent
+      console.debug('OvertimeSettings: updating pay config', {
+        employeeCode: targetCode,
+        updateData,
+      });
+      await updateEmployeePayConfig(targetCode, updateData);
       setSuccess('Configuration saved successfully!');
       await loadConfig();
     } catch (err: any) {
@@ -130,16 +215,29 @@ const OvertimeSettings: React.FC<OvertimeSettingsProps> = ({ employeeCode, isAdm
   };
 
   const calculateEffectiveRates = () => {
+    const baseRate = Number.isFinite(hourlyRateRegular) ? hourlyRateRegular : 0;
+    const weekdayMultiplier = Number.isFinite(weekdayOTMultiplier) ? weekdayOTMultiplier : 1.5;
+    const weekendMultiplier = Number.isFinite(weekendOTMultiplier) ? weekendOTMultiplier : 2.0;
+
     const weekdayOT = weekdayOTRateType === 'fixed' 
-      ? weekdayOTRate 
-      : hourlyRateRegular * weekdayOTMultiplier;
+      ? (Number.isFinite(weekdayOTRate) ? weekdayOTRate : 0)
+      : baseRate * weekdayMultiplier;
     
     const weekendOT = weekendOTRateType === 'fixed'
-      ? weekendOTRate
-      : hourlyRateRegular * weekendOTMultiplier;
+      ? (Number.isFinite(weekendOTRate) ? weekendOTRate : 0)
+      : baseRate * weekendMultiplier;
     
     return { weekdayOT, weekendOT };
   };
+
+  const activeEmployeeCode = selectedEmployee || employeeCode;
+  const activeEmployeeName = useMemo(() => {
+    if (!activeEmployeeCode) return '';
+    return employeeMap[activeEmployeeCode] || '';
+  }, [employeeMap, activeEmployeeCode]);
+  const headerLabel = activeEmployeeName
+    ? `${activeEmployeeName} · ${activeEmployeeCode}`
+    : activeEmployeeCode;
 
   if (loading) {
     return <div className="overtime-settings loading">Loading configuration...</div>;
@@ -158,15 +256,39 @@ const OvertimeSettings: React.FC<OvertimeSettingsProps> = ({ employeeCode, isAdm
 
   return (
     <div className="overtime-settings">
-      <h2>Overtime Configuration</h2>
-      <p className="employee-code">Employee: {employeeCode}</p>
+      <div className="settings-header">
+        <div className="header-primary">
+          <h2>Overtime Settings</h2>
+          <p>{headerLabel}</p>
+        </div>
+        {isAdmin && (
+          <div className="header-selector">
+            <label htmlFor="employeeSelect">Employee</label>
+            <select
+              id="employeeSelect"
+              value={selectedEmployee}
+              onChange={(e) => setSelectedEmployee(e.target.value)}
+            >
+              <option value="">Select employee</option>
+              {allConfigs.map((c) => {
+                const displayName = employeeMap[c.employee_code] || c.employee_code;
+                return (
+                  <option key={c.employee_code} value={c.employee_code}>
+                    {displayName} ({c.employee_code})
+                  </option>
+                );
+              })}
+            </select>
+          </div>
+        )}
+      </div>
 
       {error && <div className="alert alert-error">{error}</div>}
       {success && <div className="alert alert-success">{success}</div>}
 
-      <div className="settings-sections">
+      <div className="settings-grid">
         {/* Pay Rates Section */}
-        <section className="settings-section">
+        <section className="settings-card">
           <h3>Pay Rates</h3>
           
           <div className="form-group">
@@ -182,16 +304,47 @@ const OvertimeSettings: React.FC<OvertimeSettingsProps> = ({ employeeCode, isAdm
             </select>
           </div>
 
-          <div className="form-group">
-            <label>Regular Hourly Rate ($)</label>
-            <input
-              type="number"
-              step="0.01"
-              value={hourlyRateRegular}
-              onChange={(e) => setHourlyRateRegular(parseFloat(e.target.value))}
-              disabled={!isAdmin}
-            />
-          </div>
+          {/* Rate Input - Changes based on Pay Type */}
+          {payType === 'Hourly' && (
+            <div className="form-group">
+              <label>Hourly Rate (₪/hour)</label>
+              <input
+                type="number"
+                step="0.01"
+                value={hourlyRateRegular}
+                onChange={(e) => setHourlyRateRegular(parseFloat(e.target.value))}
+                disabled={!isAdmin}
+              />
+            </div>
+          )}
+          
+          {payType === 'Daily' && (
+            <div className="form-group">
+              <label>Daily Rate (₪/day)</label>
+              <input
+                type="number"
+                step="0.01"
+                value={dailyRate}
+                onChange={(e) => setDailyRate(parseFloat(e.target.value))}
+                disabled={!isAdmin}
+              />
+              <small style={{color: '#666', fontSize: '0.9em'}}>8 hours = 1 day</small>
+            </div>
+          )}
+          
+          {payType === 'Monthly' && (
+            <div className="form-group">
+              <label>Monthly Salary (₪/month)</label>
+              <input
+                type="number"
+                step="0.01"
+                value={monthlySalary}
+                onChange={(e) => setMonthlySalary(parseFloat(e.target.value))}
+                disabled={!isAdmin}
+              />
+              <small style={{color: '#666', fontSize: '0.9em'}}>Based on 22 working days (176 hours/month)</small>
+            </div>
+          )}
 
           {/* Weekday OT */}
           <div className="rate-config">
@@ -221,7 +374,7 @@ const OvertimeSettings: React.FC<OvertimeSettingsProps> = ({ employeeCode, isAdm
               </div>
             ) : (
               <div className="form-group">
-                <label>Fixed Rate ($)</label>
+                <label>Fixed Rate (₪)</label>
                 <input
                   type="number"
                   step="0.01"
@@ -232,7 +385,7 @@ const OvertimeSettings: React.FC<OvertimeSettingsProps> = ({ employeeCode, isAdm
               </div>
             )}
             <p className="rate-preview">
-              Effective Rate: <strong>${effectiveRates.weekdayOT.toFixed(2)}/hr</strong>
+              Effective Rate: <strong>₪{effectiveRates.weekdayOT.toFixed(2)}/hr</strong>
             </p>
           </div>
 
@@ -264,7 +417,7 @@ const OvertimeSettings: React.FC<OvertimeSettingsProps> = ({ employeeCode, isAdm
               </div>
             ) : (
               <div className="form-group">
-                <label>Fixed Rate ($)</label>
+                <label>Fixed Rate (₪)</label>
                 <input
                   type="number"
                   step="0.01"
@@ -275,13 +428,13 @@ const OvertimeSettings: React.FC<OvertimeSettingsProps> = ({ employeeCode, isAdm
               </div>
             )}
             <p className="rate-preview">
-              Effective Rate: <strong>${effectiveRates.weekendOT.toFixed(2)}/hr</strong>
+              Effective Rate: <strong>₪{effectiveRates.weekendOT.toFixed(2)}/hr</strong>
             </p>
           </div>
         </section>
 
         {/* Workweek Schedule Section */}
-        <section className="settings-section">
+        <section className="settings-card">
           <h3>Workweek Schedule</h3>
 
           <div className="form-group">
@@ -389,19 +542,19 @@ const OvertimeSettings: React.FC<OvertimeSettingsProps> = ({ employeeCode, isAdm
           <tbody>
             <tr>
               <td>Regular</td>
-              <td>${hourlyRateRegular.toFixed(2)}/hr</td>
+              <td>₪{(Number.isFinite(hourlyRateRegular) ? hourlyRateRegular : 0).toFixed(2)}/hr</td>
             </tr>
             <tr>
               <td>Weekday OT</td>
               <td>
-                ${effectiveRates.weekdayOT.toFixed(2)}/hr
+                ₪{effectiveRates.weekdayOT.toFixed(2)}/hr
                 {weekdayOTRateType === 'multiplier' && ` (${weekdayOTMultiplier}×)`}
               </td>
             </tr>
             <tr>
               <td>Weekend OT</td>
               <td>
-                ${effectiveRates.weekendOT.toFixed(2)}/hr
+                ₪{effectiveRates.weekendOT.toFixed(2)}/hr
                 {weekendOTRateType === 'multiplier' && ` (${weekendOTMultiplier}×)`}
               </td>
             </tr>

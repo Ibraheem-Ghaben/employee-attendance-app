@@ -20,7 +20,11 @@ interface CreateEmployeeForm {
   role: 'employee' | 'supervisor' | 'admin';
 }
 
-const EmployeeManagement: React.FC = () => {
+interface EmployeeManagementProps {
+  onBack?: () => void;
+}
+
+const EmployeeManagement: React.FC<EmployeeManagementProps> = ({ onBack }) => {
   const { user } = useAuth();
   const [form, setForm] = useState<CreateEmployeeForm>({
     username: '',
@@ -138,7 +142,12 @@ const EmployeeManagement: React.FC = () => {
 
   return (
     <div className="employee-management">
-      <h2>Create New Employee</h2>
+      <div className="management-header">
+        <h2>Create New Employee</h2>
+        {onBack && (
+          <button className="btn btn-link" onClick={onBack}>← Back to Dashboard</button>
+        )}
+      </div>
       <p className="subtitle">Add a new employee to the system</p>
 
       {error && <div className="alert alert-error">{error}</div>}

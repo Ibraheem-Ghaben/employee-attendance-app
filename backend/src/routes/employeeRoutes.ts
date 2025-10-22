@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { EmployeeProfileService } from '../services/employeeProfileService';
 import { authenticateToken, authorizeRoles, AuthRequest } from '../middleware/auth';
 import { UserRole } from '../types/user';
+import { getLocalConnection } from '../config/localDatabase';
 
 const router = Router();
 const employeeProfileService = new EmployeeProfileService();
@@ -84,11 +85,17 @@ router.get(
   authorizeRoles(UserRole.ADMIN, UserRole.SUPERVISOR),
   async (req: AuthRequest, res: Response) => {
     try {
-      const sites = await employeeProfileService.getUniqueSites();
+      const pool = await getLocalConnection();
+      const result = await pool.request().query(`
+        SELECT DISTINCT clock_description
+        FROM dbo.SyncedAttendance
+        WHERE clock_description IS NOT NULL AND clock_description <> ''
+        ORDER BY clock_description
+      `);
 
       res.json({
         success: true,
-        data: sites,
+        data: result.recordset.map((row: any) => row.clock_description),
       });
     } catch (error) {
       console.error('Error in /api/sites:', error);
