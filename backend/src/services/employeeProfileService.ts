@@ -172,20 +172,25 @@ export class EmployeeProfileService {
 
       const query = `
         SELECT DISTINCT
-          Company_Code,
-          Branch_Code,
-          Employee_Code,
-          Employee_Name_1_Arabic,
-          Employee_Name_1_English,
-          first_Last_name_a,
-          first_Last_name_eng,
-          Site_1_Arabic,
-          Site_1_English,
-          Card_ID
-        FROM dbo.Users
-        WHERE Company_Code = 'MSS'
-          AND Branch_Code = 'MSS'
-        ORDER BY Employee_Code
+          'MSS' AS Company_Code,
+          'MSS' AS Branch_Code,
+          usr.employee_code AS Employee_Code,
+          usr.full_name AS Employee_Name_1_Arabic,
+          usr.full_name AS Employee_Name_1_English,
+          usr.full_name AS first_Last_name_a,
+          usr.full_name AS first_Last_name_eng,
+          attendance.clock_description AS Site_1_Arabic,
+          attendance.clock_description AS Site_1_English,
+          usr.employee_code AS Card_ID
+        FROM dbo.Users usr
+        LEFT JOIN (
+          SELECT employee_code, MAX(clock_description) AS clock_description
+          FROM dbo.SyncedAttendance
+          GROUP BY employee_code
+        ) attendance ON attendance.employee_code = usr.employee_code
+        WHERE usr.is_active = 1
+          AND usr.employee_code IS NOT NULL
+        ORDER BY usr.employee_code
       `;
 
       const result = await pool.request().query(query);

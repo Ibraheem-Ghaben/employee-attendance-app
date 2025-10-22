@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { ApiResponse, ProfileResponse } from '../types/employee';
+import { ApiResponse, ProfileResponse, Employee } from '../types/employee';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
@@ -49,6 +49,19 @@ export const employeeService = {
       return response.data;
     } catch (error) {
       console.error('Error fetching employees:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Get all employees for dropdowns and selectors
+   */
+  getEmployeeList: async (): Promise<Employee[]> => {
+    try {
+      const response = await api.get<{success: boolean, data: Employee[]}>('/employees/list');
+      return response.data.data;
+    } catch (error) {
+      console.error('Error fetching employee list:', error);
       throw error;
     }
   },
@@ -173,6 +186,21 @@ export const employeeService = {
       return await response.blob();
     } catch (error) {
       console.error('Error exporting my attendance:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Sync attendance data from APIC server
+   */
+  syncAttendance: async (): Promise<{ success: boolean; message: string }> => {
+    try {
+      const response = await api.post('/sync', {}, {
+        timeout: 300000, // 5 minutes timeout for sync
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error syncing attendance:', error);
       throw error;
     }
   },

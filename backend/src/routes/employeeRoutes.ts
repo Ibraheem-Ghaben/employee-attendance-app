@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { EmployeeProfileService } from '../services/employeeProfileService';
+import { syncService } from '../services/syncService';
 import { authenticateToken, authorizeRoles, AuthRequest } from '../middleware/auth';
 import { UserRole } from '../types/user';
 import { getLocalConnection } from '../config/localDatabase';
@@ -143,6 +144,98 @@ router.get(
     }
   }
 );
+
+/**
+ * GET /api/sync-test
+ * Test endpoint
+ */
+router.get('/sync-test', (req: Request, res: Response) => {
+  res.json({ success: true, message: 'Sync test route works!' });
+});
+
+/**
+ * POST /api/sync
+ * Sync attendance data from APIC server to local database
+ * Protected: Admin only
+ */
+router.post(
+  '/sync',
+  authenticateToken,
+  authorizeRoles(UserRole.ADMIN),
+  async (req: AuthRequest, res: Response) => {
+    try {
+      console.log('[API] ✅ Sync endpoint HIT! Starting sync...');
+      
+      // Run sync and wait for it
+      const result = await syncService.syncAttendanceData();
+      
+      console.log('[API] ✅ Sync completed:', result);
+      
+      res.json({
+        success: true,
+        message: result.message,
+        recordsSynced: result.recordsSynced,
+      });
+    } catch (error: any) {
+      console.error('[API] ❌ Sync error:', error);
+      res.status(500).json({
+        success: false,
+        message: error.message || 'Failed to sync attendance data',
+      });
+    }
+  }
+);
+
+/**
+ * GET /api/employees/list
+ * Get all employees for dropdowns and selectors
+ * Protected: Admin and Supervisor only
+ */
+router.get(
+  '/employees/list',
+  authenticateToken,
+  authorizeRoles(UserRole.ADMIN, UserRole.SUPERVISOR),
+  async (req: AuthRequest, res: Response) => {
+    try {
+      const employees = await employeeProfileService.getAllEmployees();
+      
+      res.json({
+        success: true,
+        data: employees,
+        total: employees.length,
+      });
+    } catch (error) {
+      console.error('Error in /api/employees/list:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Internal server error',
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+  }
+);
+
+/**
+ * GET /api/employees/test
+ * Test endpoint to check if employees can be fetched (no auth required for debugging)
+ */
+router.get('/employees/test', async (req: Request, res: Response) => {
+  try {
+    const employees = await employeeProfileService.getAllEmployees();
+    res.json({
+      success: true,
+      data: employees,
+      total: employees.length,
+    });
+  } catch (error) {
+    console.error('Error in /api/employees/test:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+});
 
 /**
  * GET /api/health

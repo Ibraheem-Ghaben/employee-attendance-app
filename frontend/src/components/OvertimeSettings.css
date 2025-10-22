@@ -4,6 +4,9 @@
   display: flex;
   flex-direction: column;
   gap: 24px;
+  width: 100%;
+  box-sizing: border-box;
+  overflow-x: hidden;
 }
 
 .settings-header {
@@ -83,8 +86,10 @@
 
 .settings-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
   gap: 22px;
+  width: 100%;
+  overflow: hidden;
 }
 
 .settings-card {
@@ -95,6 +100,9 @@
   border: 1px solid rgba(1, 73, 124, 0.08);
   display: grid;
   gap: 18px;
+  width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 .settings-card h3 {
@@ -128,6 +136,9 @@
   border: 1.5px solid rgba(1, 73, 124, 0.18);
   font-size: 14px;
   transition: border 0.2s ease, box-shadow 0.2s ease;
+  width: 100%;
+  box-sizing: border-box;
+  max-width: 100%;
 }
 
 .form-group input:focus,
@@ -149,6 +160,9 @@
   border-radius: 14px;
   display: grid;
   gap: 14px;
+  width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 .rate-preview {
@@ -253,20 +267,90 @@
 }
 
 @media (max-width: 768px) {
+  .overtime-settings {
+    margin: 0 10px;
+    max-width: calc(100vw - 20px);
+  }
+  
   .settings-header {
     padding: 18px;
+    flex-direction: column;
+    gap: 15px;
   }
+  
   .header-selector select {
     min-width: 100%;
+    width: 100%;
   }
+  
   .settings-grid {
     grid-template-columns: 1fr;
+    gap: 15px;
   }
+  
+  .settings-card {
+    padding: 18px;
+    gap: 15px;
+  }
+  
   .settings-actions {
     flex-direction: column;
   }
+  
   .settings-actions .btn {
     width: 100%;
+  }
+  
+  .rate-config {
+    padding: 12px;
+  }
+  
+  .day-selector {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .day-button {
+    text-align: center;
+  }
+}
+
+@media (max-width: 480px) {
+  .overtime-settings {
+    margin: 0 5px;
+    max-width: calc(100vw - 10px);
+  }
+  
+  .settings-header {
+    padding: 15px;
+  }
+  
+  .settings-card {
+    padding: 15px;
+    gap: 12px;
+  }
+  
+  .form-group input,
+  .form-group select {
+    padding: 10px 12px;
+    font-size: 16px; /* Prevent zoom on iOS */
+  }
+  
+  .rate-config {
+    padding: 10px;
+  }
+  
+  .rate-summary {
+    padding: 15px;
+  }
+  
+  .rate-summary table {
+    font-size: 14px;
+  }
+  
+  .rate-summary th,
+  .rate-summary td {
+    padding: 8px;
   }
 }
 

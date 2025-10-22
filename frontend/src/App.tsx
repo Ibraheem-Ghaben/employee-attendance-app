@@ -73,6 +73,11 @@ function App() {
     <Router>
       <AuthProvider>
         <AppRoutes />
+        {/* MSS Software Team Watermark */}
+        <div className="mss-watermark">
+          <span className="watermark-icon">💻</span>
+          <span className="watermark-text">Made by MSS Software Team</span>
+        </div>
       </AuthProvider>
     </Router>
   );

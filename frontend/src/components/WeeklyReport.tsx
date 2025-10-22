@@ -3,7 +3,7 @@
  * Shows detailed weekly report with export to Excel
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { WeeklyReportSummary } from '../types/overtime';
 import {
   getWeeklyReport,
@@ -11,6 +11,7 @@ import {
   downloadExcelFile,
   getPunches,
 } from '../services/overtimeApi';
+import { employeeService } from '../services/api';
 import './WeeklyReport.css';
 
 interface WeeklyReportProps {
@@ -26,6 +27,62 @@ const WeeklyReport: React.FC<WeeklyReportProps> = ({ employeeCode, isAdmin }) =>
   const [loading, setLoading] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [employees, setEmployees] = useState<Array<{employee_code: string, full_name: string}>>([]);
+  const [loadingEmployees, setLoadingEmployees] = useState(false);
+
+  // Load employees for admin selector
+  useEffect(() => {
+    if (isAdmin) {
+      loadEmployees();
+    }
+  }, [isAdmin]);
+
+  const loadEmployees = async () => {
+    try {
+      setLoadingEmployees(true);
+      console.log('Loading employees...');
+      
+      // First try the lightweight list endpoint
+      try {
+        const employeesList = await employeeService.getEmployeeList();
+        console.log('Employees list response:', employeesList);
+        let mappedEmployees = employeesList.map(emp => ({
+          employee_code: emp.Employee_Code,
+          full_name: emp.Employee_Name_1_English || emp.Employee_Name_1_Arabic
+        }));
+
+        if (mappedEmployees.length > 0) {
+          console.log('List endpoint successful, employees found:', mappedEmployees.length);
+          setEmployees(mappedEmployees);
+          return;
+        }
+      } catch (listError) {
+        console.error('List endpoint failed:', listError);
+      }
+
+      // Fallback: try the paginated endpoint
+      console.log('List endpoint failed or empty, falling back to paginated /employees');
+      const response = await employeeService.getEmployees(1, 1000);
+      console.log('Paginated response:', response);
+      
+      if (response.success && response.data) {
+        const fallbackEmployees = response.data.map(emp => ({
+          employee_code: emp.Employee_Code,
+          full_name: (emp as any).Employee_Name_1_English || (emp as any).Employee_Name_1_Arabic
+        }));
+        console.log('Fallback employees:', fallbackEmployees);
+        setEmployees(fallbackEmployees);
+      } else {
+        console.error('Paginated endpoint also failed or returned no data');
+        setEmployees([]);
+      }
+    } catch (error) {
+      console.error('All methods failed:', error);
+      setEmployees([]);
+    } finally {
+      setLoadingEmployees(false);
+    }
+  };
 
   const formatTime = (time?: string | null) => {
     if (!time) return '--';
@@ -178,13 +235,25 @@ const WeeklyReport: React.FC<WeeklyReportProps> = ({ employeeCode, isAdmin }) =>
 
         {isAdmin && (
           <div className="filter-group">
-            <label>Employee Code (Optional)</label>
-            <input
-              type="text"
-              placeholder="All employees"
+            <label>Select Employee (Optional)</label>
+            <select
               value={selectedEmployee}
               onChange={(e) => setSelectedEmployee(e.target.value)}
-            />
+              disabled={loadingEmployees}
+            >
+              <option value="">All employees</option>
+              {employees.length > 0 ? (
+                employees.map((emp) => (
+                  <option key={emp.employee_code} value={emp.employee_code}>
+                    {emp.employee_code} - {emp.full_name}
+                  </option>
+                ))
+              ) : (
+                <option value="" disabled>No employees found</option>
+              )}
+            </select>
+            {loadingEmployees && <small>Loading employees...</small>}
+            {!loadingEmployees && employees.length === 0 && <small>No employees available</small>}
           </div>
         )}
 
@@ -237,7 +306,7 @@ const WeeklyReport: React.FC<WeeklyReportProps> = ({ employeeCode, isAdmin }) =>
                         <th>Weekday OT</th>
                         <th>Weekend OT</th>
                         <th>Total Hrs</th>
-                        <th>First / Last Punch</th>
+                        <th>Punch Times</th>
                         <th>Regular Pay</th>
                         <th>Weekday OT Pay</th>
                         <th>Weekend OT Pay</th>

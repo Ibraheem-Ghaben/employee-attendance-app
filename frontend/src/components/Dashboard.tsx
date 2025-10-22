@@ -388,11 +388,8 @@ const Dashboard: React.FC = () => {
                   <th>Company</th>
                   <th>Branch</th>
                   <th>Employee Code</th>
-                  <th>Name (English)</th>
-                  <th>Name (Arabic)</th>
-                  <th>Last Name</th>
-                  <th>Site (English)</th>
-                  <th>Site (Arabic)</th>
+                  <th>Name</th>
+                  <th>Site</th>
                   <th>Clock ID</th>
                   <th>In/Out</th>
                   <th>Punch Time</th>
@@ -405,10 +402,7 @@ const Dashboard: React.FC = () => {
                     <td>{emp.Branch_Code || 'N/A'}</td>
                     <td className="emp-code">{emp.Employee_Code || 'N/A'}</td>
                     <td>{emp.Employee_Name_1_English || 'N/A'}</td>
-                    <td>{emp.Employee_Name_1_Arabic || 'N/A'}</td>
-                    <td>{emp.first_Last_name_eng || 'N/A'}</td>
                     <td>{emp.Site_1_English || 'N/A'}</td>
-                    <td>{emp.Site_1_Arabic || 'N/A'}</td>
                     <td>{emp.clock_id || 'N/A'}</td>
                     <td>{getInOutBadge(emp.InOutMode)}</td>
                     <td>{formatDateTime(emp.punch_time)}</td>

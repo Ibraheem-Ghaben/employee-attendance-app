@@ -5,6 +5,7 @@
 
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { employeeService } from '../services/api';
 import './Navbar.css';
 
 interface NavbarProps {
@@ -16,6 +17,7 @@ const Navbar: React.FC<NavbarProps> = ({ activeView, onViewChange }) => {
   const { user, logout } = useAuth();
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   const menuItems = [
     { id: 'attendance', label: 'Attendance', icon: '📊', roles: ['admin', 'supervisor'] },
@@ -33,6 +35,27 @@ const Navbar: React.FC<NavbarProps> = ({ activeView, onViewChange }) => {
     setIsMenuOpen(false);
   };
 
+  const handleSync = async () => {
+    if (!window.confirm('Sync attendance data from Clock server? This may take a few minutes.')) {
+      return;
+    }
+    
+    try {
+      setIsSyncing(true);
+      await employeeService.syncAttendance();
+      
+      // Simulate sync duration (wait 30 seconds for background process)
+      await new Promise(resolve => setTimeout(resolve, 30000));
+      
+      alert('✅ Sync completed successfully! Attendance data has been updated.');
+      window.location.reload(); // Reload to show fresh data
+    } catch (error: any) {
+      alert('❌ Sync failed: ' + (error.response?.data?.message || error.message));
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   return (
     <nav className={`navbar ${isMenuOpen ? 'navbar-open' : ''}`}>
       <div className="navbar-left">
@@ -44,7 +67,7 @@ const Navbar: React.FC<NavbarProps> = ({ activeView, onViewChange }) => {
           {isMenuOpen ? '✕' : '☰'}
         </button>
         <div className="navbar-brand">
-          <span className="brand-icon">🏢</span>
+          <img src="/logo.png" alt="Square Logo" className="brand-logo" />
           <div className="brand-text">
             <span className="brand-name">MSS Attendance</span>
             <span className="brand-subtitle">MENA Digital Attendance</span>
@@ -66,6 +89,18 @@ const Navbar: React.FC<NavbarProps> = ({ activeView, onViewChange }) => {
       </div>
 
       <div className="navbar-user">
+        {user?.role === 'admin' && (
+          <button 
+            className="sync-button"
+            onClick={handleSync}
+            disabled={isSyncing}
+            title="Sync attendance data from APIC server"
+          >
+            <span className={`sync-icon ${isSyncing ? 'syncing' : ''}`}>🔄</span>
+            <span className="sync-label">Sync Data</span>
+          </button>
+        )}
+        
         <button 
           className="user-button"
           onClick={() => setShowUserMenu(!showUserMenu)}
@@ -96,6 +131,21 @@ const Navbar: React.FC<NavbarProps> = ({ activeView, onViewChange }) => {
           </div>
         )}
       </div>
+
+      {/* Sync Loading Overlay */}
+      {isSyncing && (
+        <div className="sync-overlay">
+          <div className="sync-modal">
+            <div className="sync-spinner"></div>
+            <h2>Syncing Attendance Data</h2>
+            <p>Fetching punch records from clock server...</p>
+            <p className="sync-note">This may take up to 30 seconds. Please wait.</p>
+            <div className="sync-progress">
+              <div className="sync-progress-bar"></div>
+            </div>
+          </div>
+        </div>
+      )}
     </nav>
   );
 };
