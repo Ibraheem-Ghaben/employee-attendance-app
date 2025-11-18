@@ -9,6 +9,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.weeklyReportService = exports.WeeklyReportService = void 0;
 const database_1 = require("../config/database");
+const overtimeCalculationService_1 = require("./overtimeCalculationService");
 const timesheetService_1 = require("./timesheetService");
 const exceljs_1 = __importDefault(require("exceljs"));
 class WeeklyReportService {
@@ -20,21 +21,38 @@ class WeeklyReportService {
             const pool = await (0, database_1.getLocalConnection)();
             const fromDate = new Date(request.from_date);
             const toDate = new Date(request.to_date);
-            // Get employee codes to process
+            // Get employee codes to process from active local employees
             let employeeCodes;
-            if (request.employee_code) {
-                employeeCodes = [request.employee_code];
+            if (request.employee_code && request.employee_code.trim()) {
+                employeeCodes = [request.employee_code.trim()];
+                console.log(`[Weekly Report] Generating for single employee: ${request.employee_code}`);
             }
             else {
                 const result = await pool.request().query(`
-          SELECT DISTINCT employee_code FROM dbo.EmployeePayConfig
+          SELECT employee_code
+          FROM dbo.Users
+          WHERE employee_code IS NOT NULL AND is_active = 1
+          ORDER BY employee_code
         `);
                 employeeCodes = result.recordset.map((r) => r.employee_code);
+                console.log(`[Weekly Report] Generating for ${employeeCodes.length} employees`);
             }
             const summaries = [];
             for (const employeeCode of employeeCodes) {
                 // Get employee name
                 const employeeName = await this.getEmployeeName(employeeCode);
+                // Auto-calculate timesheets for the period if needed
+                try {
+                    await timesheetService_1.timesheetService.calculateTimesheets({
+                        employee_code: employeeCode,
+                        from_date: overtimeCalculationService_1.overtimeCalculationService.formatDate(fromDate),
+                        to_date: overtimeCalculationService_1.overtimeCalculationService.formatDate(toDate),
+                        force_recalculate: false,
+                    });
+                }
+                catch (calcError) {
+                    console.warn(`[Weekly Report] Failed to auto-calculate for ${employeeCode}:`, calcError);
+                }
                 // Get timesheet days
                 const days = await timesheetService_1.timesheetService.getTimesheetDays(employeeCode, fromDate, toDate);
                 // Build daily breakdown
@@ -43,14 +61,14 @@ class WeeklyReportService {
                     employee_name: employeeName,
                     date: day.work_date,
                     day: day.day_of_week,
-                    regular_hours: day.regular_minutes / 60,
-                    weekday_ot_hours: day.weekday_ot_minutes / 60,
-                    weekend_ot_hours: day.weekend_ot_minutes / 60,
-                    total_hours: day.total_worked_minutes / 60,
-                    regular_pay: day.regular_pay,
-                    weekday_ot_pay: day.weekday_ot_pay,
-                    weekend_ot_pay: day.weekend_ot_pay,
-                    daily_total: day.total_pay,
+                    regular_hours: (day.regular_minutes || 0) / 60,
+                    weekday_ot_hours: (day.weekday_ot_minutes || 0) / 60,
+                    weekend_ot_hours: (day.weekend_ot_minutes || 0) / 60,
+                    total_hours: (day.total_worked_minutes || 0) / 60,
+                    regular_pay: day.regular_pay ?? 0,
+                    weekday_ot_pay: day.weekday_ot_pay ?? 0,
+                    weekend_ot_pay: day.weekend_ot_pay ?? 0,
+                    daily_total: day.total_pay ?? 0,
                 }));
                 // Calculate totals
                 const summary = {
@@ -58,18 +76,19 @@ class WeeklyReportService {
                     employee_name: employeeName,
                     week_start: fromDate,
                     week_end: toDate,
-                    total_regular_hours: dailyRows.reduce((sum, row) => sum + row.regular_hours, 0),
-                    total_weekday_ot_hours: dailyRows.reduce((sum, row) => sum + row.weekday_ot_hours, 0),
-                    total_weekend_ot_hours: dailyRows.reduce((sum, row) => sum + row.weekend_ot_hours, 0),
-                    total_hours: dailyRows.reduce((sum, row) => sum + row.total_hours, 0),
-                    total_regular_pay: dailyRows.reduce((sum, row) => sum + row.regular_pay, 0),
-                    total_weekday_ot_pay: dailyRows.reduce((sum, row) => sum + row.weekday_ot_pay, 0),
-                    total_weekend_ot_pay: dailyRows.reduce((sum, row) => sum + row.weekend_ot_pay, 0),
-                    week_total_pay: dailyRows.reduce((sum, row) => sum + row.daily_total, 0),
+                    total_regular_hours: dailyRows.reduce((sum, row) => sum + (row.regular_hours || 0), 0),
+                    total_weekday_ot_hours: dailyRows.reduce((sum, row) => sum + (row.weekday_ot_hours || 0), 0),
+                    total_weekend_ot_hours: dailyRows.reduce((sum, row) => sum + (row.weekend_ot_hours || 0), 0),
+                    total_hours: dailyRows.reduce((sum, row) => sum + (row.regular_hours || 0) + (row.weekday_ot_hours || 0) + (row.weekend_ot_hours || 0), 0),
+                    total_regular_pay: dailyRows.reduce((sum, row) => sum + (row.regular_pay || 0), 0),
+                    total_weekday_ot_pay: dailyRows.reduce((sum, row) => sum + (row.weekday_ot_pay || 0), 0),
+                    total_weekend_ot_pay: dailyRows.reduce((sum, row) => sum + (row.weekend_ot_pay || 0), 0),
+                    week_total_pay: dailyRows.reduce((sum, row) => sum + (row.daily_total || 0), 0),
                     days: request.include_daily_breakdown !== false ? dailyRows : [],
                 };
                 summaries.push(summary);
             }
+            console.log(`[Weekly Report] Generated ${summaries.length} employee summaries`);
             return summaries;
         }
         catch (error) {

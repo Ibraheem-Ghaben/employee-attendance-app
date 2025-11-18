@@ -36,20 +36,72 @@ const Navbar: React.FC<NavbarProps> = ({ activeView, onViewChange }) => {
   };
 
   const handleSync = async () => {
-    if (!window.confirm('Sync attendance data from Clock server? This may take a few minutes.')) {
+    const confirmMessage = 'Sync attendance data from Clock server?\n\n' +
+      '• First sync: Downloads all data (may take longer)\n' +
+      '• Subsequent syncs: Only new/updated records (faster)\n\n' +
+      'This process will run in the background.';
+    
+    if (!window.confirm(confirmMessage)) {
       return;
     }
     
     try {
       setIsSyncing(true);
-      await employeeService.syncAttendance();
       
-      // Simulate sync duration (wait 30 seconds for background process)
-      await new Promise(resolve => setTimeout(resolve, 30000));
+      // Show progress message
+      const progressMessage = document.createElement('div');
+      progressMessage.style.cssText = `
+        position: fixed; top: 20px; right: 20px; z-index: 10000;
+        background: linear-gradient(135deg, #0077b6, #0096c7);
+        color: white; padding: 16px 24px; border-radius: 12px;
+        box-shadow: 0 8px 32px rgba(0, 119, 182, 0.3);
+        font-family: inherit; font-size: 14px; font-weight: 600;
+        max-width: 300px; text-align: center;
+      `;
+      progressMessage.innerHTML = `
+        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
+          <div style="width: 20px; height: 20px; border: 2px solid rgba(255,255,255,0.3); border-top: 2px solid white; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+          <span>Syncing Data...</span>
+        </div>
+        <div style="font-size: 12px; opacity: 0.9;">Processing attendance records</div>
+      `;
+      document.body.appendChild(progressMessage);
       
-      alert('✅ Sync completed successfully! Attendance data has been updated.');
-      window.location.reload(); // Reload to show fresh data
+      const result = await employeeService.syncAttendance();
+      
+      // Store sync time in localStorage
+      localStorage.setItem('lastSyncTime', new Date().toLocaleString());
+      
+      // Update progress message with results
+      progressMessage.innerHTML = `
+        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
+          <span style="font-size: 18px;">✅</span>
+          <span>Sync Completed!</span>
+        </div>
+        <div style="font-size: 12px; opacity: 0.9;">
+          ${result.message || 'Attendance data updated successfully'}
+        </div>
+      `;
+      
+      // Remove progress message after 3 seconds
+      setTimeout(() => {
+        if (progressMessage.parentNode) {
+          progressMessage.parentNode.removeChild(progressMessage);
+        }
+      }, 3000);
+      
+      // Reload to show fresh data
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
+      
     } catch (error: any) {
+      // Remove progress message if it exists
+      const existingMessage = document.querySelector('[style*="position: fixed"]');
+      if (existingMessage) {
+        existingMessage.remove();
+      }
+      
       alert('❌ Sync failed: ' + (error.response?.data?.message || error.message));
     } finally {
       setIsSyncing(false);
@@ -70,7 +122,7 @@ const Navbar: React.FC<NavbarProps> = ({ activeView, onViewChange }) => {
           <img src="/logo.png" alt="Square Logo" className="brand-logo" />
           <div className="brand-text">
             <span className="brand-name">MSS Attendance</span>
-            <span className="brand-subtitle">MENA Digital Attendance</span>
+            
           </div>
         </div>
       </div>
@@ -128,6 +180,18 @@ const Navbar: React.FC<NavbarProps> = ({ activeView, onViewChange }) => {
             <button className="menu-item logout" onClick={logout}>
               🚪 Logout
             </button>
+            
+            {/* Modern MSS Signature */}
+            <div className="user-menu-signature">
+              <div className="signature-line"></div>
+              <div className="signature-content">
+                <span className="signature-icon">💻</span>
+                <span className="signature-text">Powered by</span>
+                <span className="signature-brand">MSS Software</span>
+                <span className="signature-year">© 2025</span>
+              </div>
+              <div className="signature-line"></div>
+            </div>
           </div>
         )}
       </div>

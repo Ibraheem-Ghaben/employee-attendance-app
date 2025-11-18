@@ -10,6 +10,7 @@ const employeeRoutes_1 = __importDefault(require("./routes/employeeRoutes"));
 const authRoutes_1 = __importDefault(require("./routes/authRoutes"));
 const profileRoutes_1 = __importDefault(require("./routes/profileRoutes"));
 const exportRoutes_1 = __importDefault(require("./routes/exportRoutes"));
+const adminRoutes_1 = __importDefault(require("./routes/adminRoutes"));
 const overtimeRoutes_1 = __importDefault(require("./routes/overtimeRoutes"));
 const database_1 = require("./config/database");
 const localDatabase_1 = require("./config/localDatabase");
@@ -30,6 +31,7 @@ app.use((req, res, next) => {
 app.use('/api/auth', authRoutes_1.default);
 app.use('/api/profile', profileRoutes_1.default);
 app.use('/api/export', exportRoutes_1.default);
+app.use('/api/admin', adminRoutes_1.default);
 app.use('/api/overtime', overtimeRoutes_1.default);
 app.use('/api', employeeRoutes_1.default);
 // Root endpoint

@@ -2,8 +2,10 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const employeeProfileService_1 = require("../services/employeeProfileService");
+const syncService_1 = require("../services/syncService");
 const auth_1 = require("../middleware/auth");
 const user_1 = require("../types/user");
+const localDatabase_1 = require("../config/localDatabase");
 const router = (0, express_1.Router)();
 const employeeProfileService = new employeeProfileService_1.EmployeeProfileService();
 /**
@@ -62,10 +64,16 @@ router.get('/employees', auth_1.authenticateToken, (0, auth_1.authorizeRoles)(us
  */
 router.get('/sites', auth_1.authenticateToken, (0, auth_1.authorizeRoles)(user_1.UserRole.ADMIN, user_1.UserRole.SUPERVISOR), async (req, res) => {
     try {
-        const sites = await employeeProfileService.getUniqueSites();
+        const pool = await (0, localDatabase_1.getLocalConnection)();
+        const result = await pool.request().query(`
+        SELECT DISTINCT clock_description
+        FROM dbo.SyncedAttendance
+        WHERE clock_description IS NOT NULL AND clock_description <> ''
+        ORDER BY clock_description
+      `);
         res.json({
             success: true,
-            data: sites,
+            data: result.recordset.map((row) => row.clock_description),
         });
     }
     catch (error) {
@@ -95,6 +103,83 @@ router.get('/statistics', auth_1.authenticateToken, (0, auth_1.authorizeRoles)(u
     }
     catch (error) {
         console.error('Error in /api/statistics:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Internal server error',
+            error: error instanceof Error ? error.message : 'Unknown error',
+        });
+    }
+});
+/**
+ * GET /api/sync-test
+ * Test endpoint
+ */
+router.get('/sync-test', (req, res) => {
+    res.json({ success: true, message: 'Sync test route works!' });
+});
+/**
+ * POST /api/sync
+ * Sync attendance data from APIC server to local database
+ * Protected: Admin only
+ */
+router.post('/sync', auth_1.authenticateToken, (0, auth_1.authorizeRoles)(user_1.UserRole.ADMIN), async (req, res) => {
+    try {
+        console.log('[API] ✅ Sync endpoint HIT! Starting sync...');
+        // Run sync and wait for it
+        const result = await syncService_1.syncService.syncAttendanceData();
+        console.log('[API] ✅ Sync completed:', result);
+        res.json({
+            success: true,
+            message: result.message,
+            recordsSynced: result.recordsSynced,
+        });
+    }
+    catch (error) {
+        console.error('[API] ❌ Sync error:', error);
+        res.status(500).json({
+            success: false,
+            message: error.message || 'Failed to sync attendance data',
+        });
+    }
+});
+/**
+ * GET /api/employees/list
+ * Get all employees for dropdowns and selectors
+ * Protected: Admin and Supervisor only
+ */
+router.get('/employees/list', auth_1.authenticateToken, (0, auth_1.authorizeRoles)(user_1.UserRole.ADMIN, user_1.UserRole.SUPERVISOR), async (req, res) => {
+    try {
+        const employees = await employeeProfileService.getAllEmployees();
+        res.json({
+            success: true,
+            data: employees,
+            total: employees.length,
+        });
+    }
+    catch (error) {
+        console.error('Error in /api/employees/list:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Internal server error',
+            error: error instanceof Error ? error.message : 'Unknown error',
+        });
+    }
+});
+/**
+ * GET /api/employees/test
+ * Test endpoint to check if employees can be fetched (no auth required for debugging)
+ */
+router.get('/employees/test', async (req, res) => {
+    try {
+        const employees = await employeeProfileService.getAllEmployees();
+        res.json({
+            success: true,
+            data: employees,
+            total: employees.length,
+        });
+    }
+    catch (error) {
+        console.error('Error in /api/employees/test:', error);
         res.status(500).json({
             success: false,
             message: 'Internal server error',

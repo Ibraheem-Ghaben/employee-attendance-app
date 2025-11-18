@@ -301,6 +301,41 @@ td {
   color: var(--text-primary);
 }
 
+/* Responsive styles for small laptop screens (1200x800) */
+@media (max-width: 1200px) and (min-width: 1025px) {
+  .container {
+    margin: 10px;
+    border-radius: 12px;
+  }
+  
+  .header {
+    padding: 20px 24px;
+  }
+  
+  .header h1 {
+    font-size: 2rem;
+  }
+  
+  .stats-bar {
+    padding: 12px 20px;
+    gap: 16px;
+  }
+  
+  .table-container {
+    padding: 20px;
+  }
+  
+  .pagination {
+    padding: 16px;
+    gap: 12px;
+  }
+  
+  .pagination button {
+    padding: 8px 16px;
+    font-size: 0.9rem;
+  }
+}
+
 @media (max-width: 768px) {
   .container {
     border-radius: 0;
@@ -368,32 +403,33 @@ td {
   }
 }
 
-/* MSS Software Team Watermark */
+/* MSS Software Team Watermark - Modern Design */
 .mss-watermark {
   position: fixed;
   bottom: 20px;
   right: 20px;
-  background: linear-gradient(135deg, #0077b6 0%, #48cae4 50%, #0096c7 100%);
+  background: linear-gradient(135deg, rgba(30, 60, 114, 0.95) 0%, rgba(42, 82, 152, 0.95) 50%, rgba(72, 202, 228, 0.95) 100%);
   color: white;
-  padding: 12px 20px;
-  border-radius: 25px;
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 0.8px;
+  padding: 14px 24px;
+  border-radius: 50px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
   text-transform: uppercase;
   box-shadow: 
-    0 10px 30px rgba(0, 119, 182, 0.4),
-    0 0 0 1px rgba(255, 255, 255, 0.1),
+    0 20px 40px rgba(30, 60, 114, 0.3),
+    0 8px 16px rgba(0, 0, 0, 0.1),
     inset 0 1px 0 rgba(255, 255, 255, 0.2);
   z-index: 1000;
-  opacity: 0.95;
-  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-  backdrop-filter: blur(15px);
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  opacity: 0.9;
+  transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  backdrop-filter: blur(20px);
+  border: 2px solid rgba(255, 255, 255, 0.2);
   cursor: pointer;
   user-select: none;
   position: relative;
   overflow: hidden;
+  transform: translateZ(0);
 }
 
 .mss-watermark::before {
@@ -413,40 +449,85 @@ td {
 
 .mss-watermark:hover {
   opacity: 1;
-  transform: translateY(-3px) scale(1.05);
+  transform: translateY(-8px) scale(1.08);
   box-shadow: 
-    0 15px 40px rgba(0, 119, 182, 0.5),
-    0 0 0 1px rgba(255, 255, 255, 0.2),
+    0 30px 60px rgba(30, 60, 114, 0.4),
+    0 15px 30px rgba(0, 0, 0, 0.15),
     inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  background: linear-gradient(135deg, rgba(30, 60, 114, 1) 0%, rgba(42, 82, 152, 1) 50%, rgba(72, 202, 228, 1) 100%);
 }
 
 .mss-watermark:active {
-  transform: translateY(-1px) scale(1.02);
+  transform: translateY(-4px) scale(1.04);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .mss-watermark .watermark-icon {
   display: inline-block;
-  margin-right: 8px;
-  font-size: 16px;
-  animation: pulse 2s infinite;
+  margin-right: 10px;
+  font-size: 18px;
+  animation: float 3s ease-in-out infinite;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
 }
 
 .mss-watermark .watermark-text {
   display: inline-block;
   position: relative;
   z-index: 1;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-weight: 600;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  letter-spacing: 0.8px;
 }
 
-@keyframes pulse {
-  0%, 100% {
-    transform: scale(1);
+@keyframes float {
+  0%, 100% { 
+    transform: translateY(0px) rotate(0deg); 
   }
-  50% {
-    transform: scale(1.1);
+  50% { 
+    transform: translateY(-3px) rotate(2deg); 
   }
 }
 
 /* Responsive watermark */
+/* Responsive watermark for small laptop screens (1200x800) */
+@media (max-width: 1200px) and (min-width: 1025px) {
+  .mss-watermark {
+    bottom: 5px;
+    right: 5px;
+    padding: 6px 10px;
+    font-size: 9px;
+    border-radius: 15px;
+    letter-spacing: 0.3px;
+  }
+  
+  .mss-watermark .watermark-icon {
+    font-size: 11px;
+    margin-right: 4px;
+  }
+  
+  .mss-watermark:hover {
+    transform: translateY(-1px) scale(1.02);
+  }
+}
+
+/* Responsive watermark for 14-inch laptop screens */
+@media (max-width: 1366px) and (min-width: 1201px) {
+  .mss-watermark {
+    bottom: 8px;
+    right: 8px;
+    padding: 8px 14px;
+    font-size: 11px;
+    border-radius: 18px;
+    letter-spacing: 0.5px;
+  }
+  
+  .mss-watermark .watermark-icon {
+    font-size: 13px;
+    margin-right: 6px;
+  }
+}
+
 @media (max-width: 768px) {
   .mss-watermark {
     bottom: 15px;

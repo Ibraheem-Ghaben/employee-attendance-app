@@ -1,0 +1,11 @@
+{
+  "files": {
+    "main.css": "https://mss-attendence.com/static/css/main.1d86ffc7.css",
+    "main.js": "https://mss-attendence.com/static/js/main.f793a822.js",
+    "index.html": "https://mss-attendence.com/index.html"
+  },
+  "entrypoints": [
+    "static/css/main.1d86ffc7.css",
+    "static/js/main.f793a822.js"
+  ]
+}

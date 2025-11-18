@@ -73,11 +73,18 @@ const Login: React.FC = () => {
         </form>
 
         <div className="login-footer">
-          <p>Demo Credentials:</p>
-          <div className="demo-credentials">
-            <span><strong>Admin:</strong> admin / MSS@2024</span>
-            <span><strong>Supervisor:</strong> supervisor / MSS@2024</span>
-            <span><strong>Employee:</strong> employee1 / MSS@2024</span>
+          
+          
+          {/* Modern MSS Signature */}
+          <div className="mss-signature">
+            <div className="signature-line"></div>
+            <div className="signature-content">
+              <span className="signature-icon">💻</span>
+              <span className="signature-text">Developed by</span>
+              <span className="signature-brand">MSS Software Team</span>
+              <span className="signature-year">© 2025</span>
+            </div>
+            <div className="signature-line"></div>
           </div>
         </div>
       </div>

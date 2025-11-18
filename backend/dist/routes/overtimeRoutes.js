@@ -36,12 +36,68 @@ router.get('/config/:employeeCode', auth_1.authenticateToken, async (req, res) =
             });
         }
         const config = await payConfigService_1.payConfigService.getEmployeePayConfig(employeeCode);
+        const toHHMMSS = (value, def) => {
+            if (!value && value !== 0)
+                return def;
+            if (typeof value === 'string') {
+                const parts = value.split(':');
+                const hh = parts[0]?.padStart(2, '0') || '00';
+                const mm = (parts[1] || '00').padStart(2, '0');
+                const ss = (parts[2] || '00').padStart(2, '0');
+                return `${hh}:${mm}:${ss}`;
+            }
+            if (value instanceof Date) {
+                const hh = String(value.getHours()).padStart(2, '0');
+                const mm = String(value.getMinutes()).padStart(2, '0');
+                const ss = String(value.getSeconds()).padStart(2, '0');
+                return `${hh}:${mm}:${ss}`;
+            }
+            const str = String(value);
+            const parts = str.split(':');
+            const hh = parts[0]?.padStart(2, '0') || '00';
+            const mm = (parts[1] || '00').padStart(2, '0');
+            const ss = (parts[2] || '00').padStart(2, '0');
+            return `${hh}:${mm}:${ss}`;
+        };
         if (!config) {
+            // Fallback to site default config if employee-specific config not found
+            const siteDefault = await payConfigService_1.payConfigService.getSitePayConfig('MSS_DEFAULT');
+            if (siteDefault) {
+                const fallback = {
+                    employee_code: employeeCode,
+                    pay_type: 'Hourly',
+                    hourly_rate_regular: siteDefault.default_hourly_rate,
+                    weekday_ot_rate_type: 'multiplier',
+                    hourly_rate_weekday_ot: null,
+                    weekday_ot_multiplier: siteDefault.default_weekday_ot_multiplier,
+                    weekend_ot_rate_type: 'multiplier',
+                    hourly_rate_weekend_ot: null,
+                    weekend_ot_multiplier: siteDefault.default_weekend_ot_multiplier,
+                    week_start: siteDefault.week_start,
+                    weekend_days: siteDefault.weekend_days,
+                    workday_start: toHHMMSS(siteDefault.workday_start, '09:00:00'),
+                    workday_end: toHHMMSS(siteDefault.workday_end, '17:00:00'),
+                    ot_start_time_on_workdays: toHHMMSS(siteDefault.ot_start_time_on_workdays, '17:00:00'),
+                    minimum_daily_hours_for_pay: 6.0,
+                };
+                return res.json({
+                    success: true,
+                    data: fallback,
+                });
+            }
             return res.status(404).json({
                 success: false,
                 message: 'Pay configuration not found for this employee',
             });
         }
+        // Normalize time fields for employee config
+        const normalized = {
+            ...config,
+            workday_start: toHHMMSS(config.workday_start, '09:00:00'),
+            workday_end: toHHMMSS(config.workday_end, '17:00:00'),
+            ot_start_time_on_workdays: toHHMMSS(config.ot_start_time_on_workdays, '17:00:00'),
+        };
+        return res.json({ success: true, data: normalized });
         res.json({
             success: true,
             data: config,
@@ -64,10 +120,34 @@ router.get('/config/:employeeCode', auth_1.authenticateToken, async (req, res) =
 router.post('/config/:employeeCode', auth_1.authenticateToken, (0, auth_1.authorizeRoles)(user_1.UserRole.ADMIN, user_1.UserRole.SUPERVISOR), async (req, res) => {
     try {
         const { employeeCode } = req.params;
+        // Debug: log incoming payload
+        const { pay_type, hourly_rate_regular, weekday_ot_rate_type, hourly_rate_weekday_ot, weekday_ot_multiplier, weekend_ot_rate_type, hourly_rate_weekend_ot, weekend_ot_multiplier, week_start, weekend_days, workday_start, workday_end, ot_start_time_on_workdays, minimum_daily_hours_for_pay } = req.body || {};
+        const toHHMMSS = (value) => {
+            if (value === undefined || value === null)
+                return undefined;
+            const str = String(value);
+            if (!str)
+                return undefined;
+            const parts = str.split(':');
+            const hh = String(parseInt(parts[0], 10) || 0).padStart(2, '0');
+            const mm = String(parseInt(parts[1], 10) || 0).padStart(2, '0');
+            const ss = parts.length > 2 ? String(parseInt(parts[2], 10) || 0).padStart(2, '0') : '00';
+            return `${hh}:${mm}:${ss}`;
+        };
+        const normalizedTimes = {
+            workday_start: toHHMMSS(workday_start),
+            workday_end: toHHMMSS(workday_end),
+            ot_start_time_on_workdays: toHHMMSS(ot_start_time_on_workdays),
+        };
         const updateRequest = {
             ...req.body,
+            ...normalizedTimes,
             employee_code: employeeCode,
         };
+        console.log('Overtime POST /config payload', {
+            employeeCode,
+            updateRequest,
+        });
         const config = await payConfigService_1.payConfigService.updateEmployeeRates(updateRequest);
         res.json({
             success: true,
@@ -345,6 +425,21 @@ router.get('/timesheet/:employeeCode', auth_1.authenticateToken, async (req, res
             message: 'Internal server error',
             error: error.message,
         });
+    }
+});
+router.get('/punches/:employeeCode', auth_1.authenticateToken, async (req, res) => {
+    try {
+        const { employeeCode } = req.params;
+        const { from_date, to_date } = req.query;
+        if (!from_date || !to_date) {
+            return res.status(400).json({ success: false, message: 'from_date and to_date are required' });
+        }
+        const punches = await timesheetService_1.timesheetService.getPunchRecordsRange(employeeCode, new Date(from_date), new Date(to_date));
+        res.json({ success: true, data: punches });
+    }
+    catch (error) {
+        console.error('Error getting punches:', error);
+        res.status(500).json({ success: false, message: 'Internal server error', error: error.message });
     }
 });
 exports.default = router;

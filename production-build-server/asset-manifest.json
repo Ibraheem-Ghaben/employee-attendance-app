@@ -1,0 +1,11 @@
+{
+  "files": {
+    "main.css": "http://192.168.5.103/static/css/main.1d86ffc7.css",
+    "main.js": "http://192.168.5.103/static/js/main.f793a822.js",
+    "index.html": "http://192.168.5.103/index.html"
+  },
+  "entrypoints": [
+    "static/css/main.1d86ffc7.css",
+    "static/js/main.f793a822.js"
+  ]
+}

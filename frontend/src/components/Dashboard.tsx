@@ -31,12 +31,14 @@ const Dashboard: React.FC = () => {
   const [sites, setSites] = useState<string[]>([]);
   const [statistics, setStatistics] = useState<any>(null);
   const [statsLoading, setStatsLoading] = useState(false);
+  const [lastSyncTime, setLastSyncTime] = useState<string | null>(null);
 
   useEffect(() => {
     if (user?.role === 'admin' || user?.role === 'supervisor') {
       fetchEmployees();
       fetchSites();
       fetchStatistics();
+      fetchLastSyncTime();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPage, pageSize, user]);
@@ -116,6 +118,18 @@ const Dashboard: React.FC = () => {
       setStatistics(null);
     } finally {
       setStatsLoading(false);
+    }
+  };
+
+  const fetchLastSyncTime = async () => {
+    try {
+      // Get last sync time from localStorage (set by sync process)
+      const lastSync = localStorage.getItem('lastSyncTime');
+      if (lastSync) {
+        setLastSyncTime(lastSync);
+      }
+    } catch (error) {
+      console.error('Error fetching last sync time:', error);
     }
   };
 
@@ -227,8 +241,22 @@ const Dashboard: React.FC = () => {
 
   return (
     <div className="dashboard-content-only">
-      {/* Export Button */}
-      <div className="dashboard-actions">
+      {/* Top Actions Bar */}
+      <div className="dashboard-top-actions">
+        {/* Sync Status */}
+        {user?.role === 'admin' && lastSyncTime && (
+          <div className="sync-status-top">
+            <div className="sync-status-content">
+              <span className="sync-icon">🔄</span>
+              <div className="sync-info">
+                <span className="sync-label">Last Sync:</span>
+                <span className="sync-time">{lastSyncTime}</span>
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {/* Export Button */}
         <button onClick={handleExport} className="btn btn-export">
           📊 Export to Excel
         </button>

@@ -90,7 +90,7 @@ export class WeeklyReportService {
           total_regular_hours: dailyRows.reduce((sum, row) => sum + (row.regular_hours || 0), 0),
           total_weekday_ot_hours: dailyRows.reduce((sum, row) => sum + (row.weekday_ot_hours || 0), 0),
           total_weekend_ot_hours: dailyRows.reduce((sum, row) => sum + (row.weekend_ot_hours || 0), 0),
-          total_hours: dailyRows.reduce((sum, row) => sum + (row.total_hours || 0), 0),
+          total_hours: dailyRows.reduce((sum, row) => sum + (row.regular_hours || 0) + (row.weekday_ot_hours || 0) + (row.weekend_ot_hours || 0), 0),
           total_regular_pay: dailyRows.reduce((sum, row) => sum + (row.regular_pay || 0), 0),
           total_weekday_ot_pay: dailyRows.reduce((sum, row) => sum + (row.weekday_ot_pay || 0), 0),
           total_weekend_ot_pay: dailyRows.reduce((sum, row) => sum + (row.weekend_ot_pay || 0), 0),

@@ -2,11 +2,14 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.UserProfileService = void 0;
 const localDatabase_1 = require("../config/localDatabase");
-const database_1 = require("../config/database");
 class UserProfileService {
-    /**
-     * Get user profile from LOCAL database (AttendanceAuthDB)
-     */
+    async getLocalEmployeeCodes() {
+        const pool = await (0, localDatabase_1.getLocalConnection)();
+        const result = await pool
+            .request()
+            .query('SELECT employee_code FROM dbo.Users WHERE employee_code IS NOT NULL');
+        return result.recordset.map((row) => row.employee_code);
+    }
     async getUserProfile(username) {
         try {
             const pool = await (0, localDatabase_1.getLocalConnection)();
@@ -25,7 +28,6 @@ class UserProfileService {
                 return null;
             }
             const user = result.recordset[0];
-            // Get attendance statistics from MSS_TA if employee_code exists
             let attendanceStats = null;
             if (user.employee_code) {
                 attendanceStats = await this.getAttendanceStatistics(user.employee_code);
@@ -50,9 +52,6 @@ class UserProfileService {
             throw error;
         }
     }
-    /**
-     * Get user profile by employee code from LOCAL database
-     */
     async getUserProfileByEmployeeCode(employeeCode) {
         try {
             const pool = await (0, localDatabase_1.getLocalConnection)();
@@ -71,7 +70,6 @@ class UserProfileService {
                 return null;
             }
             const user = result.recordset[0];
-            // Get attendance statistics from MSS_TA
             const attendanceStats = await this.getAttendanceStatistics(employeeCode);
             return {
                 profile: {
@@ -93,38 +91,37 @@ class UserProfileService {
             throw error;
         }
     }
-    /**
-     * Get attendance statistics from MSS_TA (READ-ONLY)
-     */
     async getAttendanceStatistics(employeeCode, startDate, endDate) {
         try {
-            const pool = await (0, database_1.getConnection)();
-            let whereClause = `
-        WHERE employee.Company_Code = 'MSS' 
-          AND employee.Branch_Code = 'MSS' 
-          AND employee.Employee_Code = @employeeCode
-          AND record.clock_id = 3
-      `;
-            const request = pool.request()
-                .input('employeeCode', localDatabase_1.sql.VarChar, employeeCode);
+            const localCodes = await this.getLocalEmployeeCodes();
+            if (!localCodes.includes(employeeCode)) {
+                return {
+                    totalRecords: 0,
+                    totalCheckIns: 0,
+                    totalCheckOuts: 0,
+                    lastPunchTime: null,
+                    firstPunchTime: null,
+                };
+            }
+            const pool = await (0, localDatabase_1.getLocalConnection)();
+            let whereClause = 'WHERE attendance.employee_code = @employeeCode';
+            const request = pool.request().input('employeeCode', localDatabase_1.sql.VarChar, employeeCode);
             if (startDate) {
-                whereClause += ' AND record.punch_time >= @startDate';
-                request.input('startDate', localDatabase_1.sql.DateTime, new Date(startDate));
+                whereClause += ' AND attendance.punch_time >= @startDate';
+                request.input('startDate', localDatabase_1.sql.DateTime2, new Date(startDate));
             }
             if (endDate) {
-                whereClause += ' AND record.punch_time <= @endDate';
-                request.input('endDate', localDatabase_1.sql.DateTime, new Date(endDate));
+                whereClause += ' AND attendance.punch_time <= @endDate';
+                request.input('endDate', localDatabase_1.sql.DateTime2, new Date(endDate));
             }
             const query = `
         SELECT 
           COUNT(*) as totalRecords,
-          SUM(CASE WHEN record.InOutMode = 0 THEN 1 ELSE 0 END) as totalCheckIns,
-          SUM(CASE WHEN record.InOutMode = 1 THEN 1 ELSE 0 END) as totalCheckOuts,
-          MAX(record.punch_time) as lastPunchTime,
-          MIN(record.punch_time) as firstPunchTime
-        FROM [Laserfiche].[dbo].[Laserfiche] as employee
-        LEFT JOIN [MSS_TA].[dbo].[final_attendance_records] as record
-          ON record.EnrollNumber = employee.Card_ID
+          SUM(CASE WHEN attendance.in_out_mode = 0 THEN 1 ELSE 0 END) as totalCheckIns,
+          SUM(CASE WHEN attendance.in_out_mode = 1 THEN 1 ELSE 0 END) as totalCheckOuts,
+          MAX(attendance.punch_time) as lastPunchTime,
+          MIN(attendance.punch_time) as firstPunchTime
+        FROM dbo.SyncedAttendance AS attendance
         ${whereClause}
       `;
             const result = await request.query(query);
@@ -137,8 +134,7 @@ class UserProfileService {
             };
         }
         catch (error) {
-            console.error('Error fetching attendance statistics from MSS_TA:', error);
-            // Return empty stats if MSS_TA query fails
+            console.error('Error fetching attendance statistics from local sync table:', error);
             return {
                 totalRecords: 0,
                 totalCheckIns: 0,
@@ -148,46 +144,40 @@ class UserProfileService {
             };
         }
     }
-    /**
-     * Get user's recent attendance records from MSS_TA (READ-ONLY)
-     */
     async getUserAttendanceRecords(employeeCode, startDate, endDate, limit = 100) {
         try {
-            const pool = await (0, database_1.getConnection)();
-            let whereClause = `
-        WHERE employee.Company_Code = 'MSS' 
-          AND employee.Branch_Code = 'MSS' 
-          AND employee.Employee_Code = @employeeCode
-          AND record.clock_id = 3
-      `;
+            const localCodes = await this.getLocalEmployeeCodes();
+            if (!localCodes.includes(employeeCode)) {
+                return [];
+            }
+            const pool = await (0, localDatabase_1.getLocalConnection)();
+            let whereClause = 'WHERE attendance.employee_code = @employeeCode';
             const request = pool.request()
                 .input('employeeCode', localDatabase_1.sql.VarChar, employeeCode)
                 .input('limit', localDatabase_1.sql.Int, limit);
             if (startDate) {
-                whereClause += ' AND record.punch_time >= @startDate';
-                request.input('startDate', localDatabase_1.sql.DateTime, new Date(startDate));
+                whereClause += ' AND attendance.punch_time >= @startDate';
+                request.input('startDate', localDatabase_1.sql.DateTime2, new Date(startDate));
             }
             if (endDate) {
-                whereClause += ' AND record.punch_time <= @endDate';
-                request.input('endDate', localDatabase_1.sql.DateTime, new Date(endDate));
+                whereClause += ' AND attendance.punch_time <= @endDate';
+                request.input('endDate', localDatabase_1.sql.DateTime2, new Date(endDate));
             }
             const query = `
         SELECT TOP (@limit)
-          record.clock_id,
-          record.InOutMode,
-          record.punch_time,
-          employee.Site_1_English as site
-        FROM [Laserfiche].[dbo].[Laserfiche] as employee
-        LEFT JOIN [MSS_TA].[dbo].[final_attendance_records] as record
-          ON record.EnrollNumber = employee.Card_ID
+          attendance.clock_id,
+          attendance.in_out_mode,
+          attendance.punch_time,
+          attendance.clock_description AS site
+        FROM dbo.SyncedAttendance AS attendance
         ${whereClause}
-        ORDER BY record.punch_time DESC
+        ORDER BY attendance.punch_time DESC
       `;
             const result = await request.query(query);
             return result.recordset;
         }
         catch (error) {
-            console.error('Error fetching user attendance records from MSS_TA:', error);
+            console.error('Error fetching user attendance records from local sync table:', error);
             return [];
         }
     }

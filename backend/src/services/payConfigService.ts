@@ -147,7 +147,31 @@ export class PayConfigService {
         ...request,
       };
 
-      return await this.upsertEmployeePayConfig(updated);
+      const result = await this.upsertEmployeePayConfig(updated);
+
+      // Trigger recalculation for the last 30 days to update existing timesheet days with new rates
+      try {
+        const { timesheetService } = await import('./timesheetService');
+        const endDate = new Date();
+        const startDate = new Date();
+        startDate.setDate(endDate.getDate() - 30);
+
+        console.log(`[PayConfig] Triggering recalculation for ${request.employee_code} from ${startDate.toISOString().split('T')[0]} to ${endDate.toISOString().split('T')[0]}`);
+        
+        await timesheetService.calculateTimesheets({
+          employee_code: request.employee_code,
+          from_date: startDate.toISOString().split('T')[0],
+          to_date: endDate.toISOString().split('T')[0],
+          force_recalculate: true, // Force recalculation to use new rates
+        });
+        
+        console.log(`[PayConfig] Recalculation completed for ${request.employee_code}`);
+      } catch (calcError) {
+        console.warn(`[PayConfig] Failed to trigger recalculation for ${request.employee_code}:`, calcError);
+        // Don't throw error - config update succeeded, recalculation is optional
+      }
+
+      return result;
     } catch (error) {
       console.error('Error updating employee rates:', error);
       throw error;

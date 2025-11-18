@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.sql = exports.closeLocalConnection = exports.getLocalConnection = exports.closeConnection = exports.getConnection = void 0;
+exports.sql = exports.closeApicConnection = exports.getApicConnection = exports.closeLocalConnection = exports.getLocalConnection = exports.closeConnection = exports.getConnection = void 0;
 const mssql_1 = __importDefault(require("mssql"));
 exports.sql = mssql_1.default;
 const dotenv_1 = __importDefault(require("dotenv"));
@@ -75,3 +75,6 @@ exports.closeConnection = closeConnection;
 var localDatabase_1 = require("./localDatabase");
 Object.defineProperty(exports, "getLocalConnection", { enumerable: true, get: function () { return localDatabase_1.getLocalConnection; } });
 Object.defineProperty(exports, "closeLocalConnection", { enumerable: true, get: function () { return localDatabase_1.closeLocalConnection; } });
+var apicDatabase_1 = require("./apicDatabase");
+Object.defineProperty(exports, "getApicConnection", { enumerable: true, get: function () { return apicDatabase_1.getApicConnection; } });
+Object.defineProperty(exports, "closeApicConnection", { enumerable: true, get: function () { return apicDatabase_1.closeApicConnection; } });

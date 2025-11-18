@@ -115,6 +115,15 @@
   color: white;
 }
 
+.stat-danger {
+  border-left-color: #ef4444;
+}
+
+.stat-danger .stat-icon {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  color: white;
+}
+
 /* Skeleton Loading */
 .stat-card.skeleton {
   pointer-events: none;

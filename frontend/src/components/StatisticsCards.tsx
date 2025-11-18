@@ -6,6 +6,7 @@ interface Statistics {
   totalEmployees: number;
   totalCheckIns: number;
   totalCheckOuts: number;
+  totalUnknown: number;
   totalSites: number;
   lastPunchTime?: string;
   firstPunchTime?: string;
@@ -91,6 +92,14 @@ const StatisticsCards: React.FC<StatisticsCardsProps> = ({ stats, loading }) => 
         <div className="stat-content">
           <div className="stat-label">Check-Outs</div>
           <div className="stat-value">{safeNumber(stats.totalCheckOuts)}</div>
+        </div>
+      </div>
+
+      <div className="stat-card stat-danger">
+        <div className="stat-icon">❓</div>
+        <div className="stat-content">
+          <div className="stat-label">Unknown Mode</div>
+          <div className="stat-value">{safeNumber(stats.totalUnknown)}</div>
         </div>
       </div>
 

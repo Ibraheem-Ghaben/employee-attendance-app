@@ -1,7 +1,7 @@
 .navbar {
   position: sticky;
   top: 0;
-  z-index: 1040;
+  z-index: 9999;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -13,12 +13,14 @@
   box-shadow: 0 18px 40px rgba(1, 41, 117, 0.25);
   border-bottom: 1px solid rgba(255, 255, 255, 0.12);
   backdrop-filter: blur(12px);
+  isolation: isolate;
 }
 
 .navbar-left {
   display: flex;
   align-items: center;
   gap: 18px;
+  z-index: 10001;
 }
 
 .nav-toggle {
@@ -82,6 +84,8 @@
   justify-content: center;
   max-width: 720px;
   scrollbar-width: none;
+  position: relative;
+  z-index: 10000;
 }
 
 .navbar-menu::-webkit-scrollbar {
@@ -102,6 +106,8 @@
   cursor: pointer;
   transition: all 0.2s ease;
   white-space: nowrap;
+  position: relative;
+  z-index: 10001;
 }
 
 .nav-item:hover {
@@ -126,6 +132,7 @@
   align-items: center;
   justify-content: flex-end;
   min-width: 220px;
+  z-index: 10002;
 }
 
 .user-button {
@@ -191,7 +198,8 @@
   box-shadow: 0 22px 45px rgba(14, 40, 82, 0.25);
   min-width: 240px;
   overflow: hidden;
-  z-index: 1050;
+  z-index: 10003;
+  pointer-events: auto;
 }
 
 .user-info {
@@ -237,29 +245,202 @@
   background: rgba(217, 4, 41, 0.1);
 }
 
-@media (max-width: 1100px) {
-  .navbar {
-    flex-wrap: wrap;
-    gap: 16px;
-    padding: 14px 20px;
-  }
+/* Modern User Menu Signature Styles */
+.user-menu-signature {
+  margin-top: 8px;
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-top: 1px solid rgba(20, 33, 61, 0.08);
+  background: rgba(0, 119, 182, 0.03);
+}
 
-  .navbar-menu {
-    order: 3;
-    width: 100%;
-    justify-content: flex-start;
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    padding-bottom: 6px;
-  }
+.user-menu-signature .signature-line {
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(0, 119, 182, 0.3), transparent);
+}
 
-  .navbar-user {
-    width: 100%;
-    justify-content: flex-end;
+.user-menu-signature .signature-content {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: linear-gradient(135deg, rgba(0, 119, 182, 0.08), rgba(72, 202, 228, 0.08));
+  border-radius: 12px;
+  border: 1px solid rgba(0, 119, 182, 0.15);
+  transition: all 0.3s ease;
+}
+
+.user-menu-signature .signature-content:hover {
+  transform: translateY(-1px);
+  background: linear-gradient(135deg, rgba(0, 119, 182, 0.12), rgba(72, 202, 228, 0.12));
+  box-shadow: 0 4px 12px rgba(0, 119, 182, 0.15);
+}
+
+.user-menu-signature .signature-icon {
+  font-size: 12px;
+  animation: float 3s ease-in-out infinite;
+}
+
+.user-menu-signature .signature-text {
+  font-size: 9px;
+  color: #666;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.user-menu-signature .signature-brand {
+  font-size: 10px;
+  color: #0077b6;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.user-menu-signature .signature-year {
+  font-size: 8px;
+  color: #48cae4;
+  font-weight: 600;
+}
+
+@keyframes float {
+  0%, 100% { 
+    transform: translateY(0px) rotate(0deg); 
+  }
+  50% { 
+    transform: translateY(-2px) rotate(1deg); 
   }
 }
 
-@media (max-width: 768px) {
+/* Medium laptop screens (1400px - 1201px) */
+@media (max-width: 1400px) and (min-width: 1201px) {
+  .navbar {
+    padding: 11px 24px;
+    gap: 16px;
+  }
+
+  .navbar-menu {
+    gap: 9px;
+    max-width: 650px;
+  }
+
+  .nav-item {
+    padding: 11px 16px;
+    font-size: 13.5px;
+  }
+
+  .sync-button {
+    padding: 9px 16px;
+    font-size: 13.5px;
+    min-width: 115px;
+  }
+}
+
+/* Small laptop screens (1200px - 1025px) */
+@media (max-width: 1200px) and (min-width: 1025px) {
+  .navbar {
+    padding: 10px 20px;
+    gap: 12px;
+  }
+
+  .navbar-brand {
+    gap: 12px;
+  }
+
+  .brand-logo {
+    width: 44px;
+    height: 44px;
+  }
+
+  .brand-name {
+    font-size: 17px;
+  }
+
+  .brand-subtitle {
+    font-size: 11px;
+  }
+
+  .navbar-menu {
+    gap: 8px;
+    max-width: 600px;
+  }
+
+  .nav-item {
+    padding: 10px 14px;
+    font-size: 13px;
+  }
+
+  .nav-icon {
+    font-size: 16px;
+  }
+
+  .navbar-user {
+    min-width: 200px;
+  }
+
+  .user-button {
+    padding: 8px 14px;
+    gap: 10px;
+  }
+
+  .user-avatar {
+    width: 36px;
+    height: 36px;
+    font-size: 14px;
+  }
+
+  .user-name {
+    font-size: 13px;
+  }
+
+  .user-role {
+    font-size: 10px;
+  }
+
+  .sync-button {
+    padding: 8px 14px;
+    font-size: 13px;
+    min-width: 110px;
+    margin-right: 10px;
+  }
+
+  .sync-icon {
+    font-size: 16px;
+  }
+
+  /* User menu signature adjustments for small laptops */
+  .user-menu-signature {
+    padding: 10px 14px;
+    gap: 6px;
+  }
+
+  .user-menu-signature .signature-content {
+    padding: 5px 10px;
+    gap: 5px;
+  }
+
+  .user-menu-signature .signature-icon {
+    font-size: 11px;
+  }
+
+  .user-menu-signature .signature-text {
+    font-size: 8px;
+  }
+
+  .user-menu-signature .signature-brand {
+    font-size: 9px;
+  }
+
+  .user-menu-signature .signature-year {
+    font-size: 7px;
+  }
+}
+
+@media (max-width: 1200px) {
   .nav-toggle {
     display: inline-flex;
     align-items: center;
@@ -296,6 +477,7 @@
     align-items: stretch;
     gap: 8px;
     padding-top: 8px;
+    z-index: 10000;
   }
 
   .navbar-open .navbar-menu {
@@ -306,11 +488,13 @@
     width: 100%;
     justify-content: flex-start;
     padding: 12px 14px;
+    z-index: 10001;
   }
 
   .navbar-user {
     width: 100%;
     justify-content: flex-start;
+    z-index: 10002;
   }
 
   .user-button {
@@ -321,6 +505,63 @@
 
   .user-details {
     align-items: flex-start;
+  }
+
+  .sync-button {
+    padding: 8px 12px;
+    font-size: 13px;
+    min-width: 100px;
+    margin-right: 8px;
+  }
+}
+
+@media (max-width: 768px) {
+  .navbar {
+    padding: 10px 12px;
+    gap: 12px;
+  }
+
+  .brand-logo {
+    width: 38px;
+    height: 38px;
+  }
+
+  .brand-name {
+    font-size: 15px;
+  }
+
+  .brand-subtitle {
+    font-size: 9px;
+  }
+
+  .nav-item {
+    padding: 10px 12px;
+    font-size: 13px;
+  }
+
+  .sync-button {
+    padding: 6px 10px;
+    font-size: 12px;
+    min-width: 90px;
+    margin-right: 6px;
+  }
+
+  .user-button {
+    padding: 8px 12px;
+  }
+
+  .user-avatar {
+    width: 32px;
+    height: 32px;
+    font-size: 12px;
+  }
+
+  .user-name {
+    font-size: 12px;
+  }
+
+  .user-role {
+    font-size: 9px;
   }
 }
 
@@ -341,6 +582,8 @@
   box-shadow: 0 4px 12px rgba(0, 119, 182, 0.3);
   margin-right: 12px;
   min-width: 120px;
+  position: relative;
+  z-index: 10004;
 }
 
 .sync-button:hover:not(:disabled) {

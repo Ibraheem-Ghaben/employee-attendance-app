@@ -124,4 +124,39 @@ router.put('/users/:userId/status', auth_1.authenticateToken, (0, auth_1.authori
         });
     }
 });
+/**
+ * PUT /api/auth/users/:userId
+ * Update user fields (Admin only)
+ */
+router.put('/users/:userId', auth_1.authenticateToken, (0, auth_1.authorizeRoles)(user_1.UserRole.ADMIN), async (req, res) => {
+    try {
+        const userId = parseInt(req.params.userId);
+        const { username, employee_code, role, full_name, email, is_active } = req.body;
+        const result = await authService.updateUser(userId, { username, employee_code, role, full_name, email, is_active });
+        res.json(result);
+    }
+    catch (error) {
+        console.error('Update user error:', error);
+        res.status(500).json({ success: false, message: 'Internal server error' });
+    }
+});
+/**
+ * PUT /api/auth/users/:userId/password
+ * Update user password (Admin only)
+ */
+router.put('/users/:userId/password', auth_1.authenticateToken, (0, auth_1.authorizeRoles)(user_1.UserRole.ADMIN), async (req, res) => {
+    try {
+        const userId = parseInt(req.params.userId);
+        const { password } = req.body;
+        if (!password || password.length < 6) {
+            return res.status(400).json({ success: false, message: 'Password must be at least 6 characters' });
+        }
+        const result = await authService.updateUserPassword(userId, password);
+        res.json(result);
+    }
+    catch (error) {
+        console.error('Update user password error:', error);
+        res.status(500).json({ success: false, message: 'Internal server error' });
+    }
+});
 exports.default = router;

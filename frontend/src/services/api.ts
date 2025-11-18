@@ -1,7 +1,8 @@
 import axios from 'axios';
 import { ApiResponse, ProfileResponse, Employee } from '../types/employee';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+// Use same-origin proxy to avoid mixed-content issues under HTTPS
+const API_URL = process.env.REACT_APP_API_URL || '/api';
 
 const api = axios.create({
   baseURL: API_URL,
@@ -193,7 +194,7 @@ export const employeeService = {
   /**
    * Sync attendance data from APIC server
    */
-  syncAttendance: async (): Promise<{ success: boolean; message: string }> => {
+  syncAttendance: async (): Promise<{ success: boolean; message: string; recordsSynced?: number }> => {
     try {
       const response = await api.post('/sync', {}, {
         timeout: 300000, // 5 minutes timeout for sync

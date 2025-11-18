@@ -7,6 +7,7 @@ exports.AuthService = void 0;
 const bcryptjs_1 = __importDefault(require("bcryptjs"));
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const localDatabase_1 = require("../config/localDatabase");
+const user_1 = require("../types/user");
 class AuthService {
     constructor() {
         this.jwtSecret = process.env.JWT_SECRET || 'default_secret';
@@ -20,8 +21,8 @@ class AuthService {
             const pool = await (0, localDatabase_1.getLocalConnection)();
             console.log('username', username);
             console.log('password', password);
-            // Get user from database
-            const result = await pool
+            // Get user by username
+            let result = await pool
                 .request()
                 .input('username', localDatabase_1.sql.VarChar, username)
                 .query(`
@@ -31,13 +32,26 @@ class AuthService {
           FROM [dbo].[Users]
           WHERE username = @username
         `);
+            // If not found, try by employee_code (allow login with employee code)
             if (result.recordset.length === 0) {
-                return {
-                    success: false,
-                    user: {},
-                    token: '',
-                    message: 'Invalid username or password',
-                };
+                result = await pool
+                    .request()
+                    .input('employeeCode', localDatabase_1.sql.VarChar, username)
+                    .query(`
+            SELECT 
+              id, username, password, employee_code, role, 
+              full_name, email, is_active
+            FROM [dbo].[Users]
+            WHERE employee_code = @employeeCode
+          `);
+                if (result.recordset.length === 0) {
+                    return {
+                        success: false,
+                        user: {},
+                        token: '',
+                        message: 'Invalid username or password',
+                    };
+                }
             }
             const user = result.recordset[0];
             // Check if user is active
@@ -182,6 +196,123 @@ class AuthService {
         catch (error) {
             console.error('Update user status error:', error);
             throw new Error('Failed to update user status');
+        }
+    }
+    /**
+     * Update user fields (Admin only)
+     */
+    async updateUser(userId, fields) {
+        try {
+            const pool = await (0, localDatabase_1.getLocalConnection)();
+            const sanitized = {};
+            if (fields.username !== undefined) {
+                const username = fields.username?.trim();
+                if (!username) {
+                    return { success: false, message: 'Username is required' };
+                }
+                const usernameExists = await pool
+                    .request()
+                    .input('username', localDatabase_1.sql.VarChar, username)
+                    .input('userId', localDatabase_1.sql.Int, userId)
+                    .query('SELECT id FROM [dbo].[Users] WHERE username = @username AND id <> @userId');
+                if (usernameExists.recordset.length > 0) {
+                    return { success: false, message: 'Username already exists' };
+                }
+                sanitized.username = username;
+            }
+            if (fields.employee_code !== undefined) {
+                const employeeCode = fields.employee_code?.trim() || null;
+                if (employeeCode) {
+                    const employeeCodeExists = await pool
+                        .request()
+                        .input('employee_code', localDatabase_1.sql.VarChar, employeeCode)
+                        .input('userId', localDatabase_1.sql.Int, userId)
+                        .query('SELECT id FROM [dbo].[Users] WHERE employee_code = @employee_code AND id <> @userId');
+                    if (employeeCodeExists.recordset.length > 0) {
+                        return { success: false, message: 'Employee code already exists' };
+                    }
+                    sanitized.employee_code = employeeCode;
+                }
+                else {
+                    sanitized.employee_code = null;
+                }
+            }
+            if (fields.role !== undefined) {
+                const role = fields.role;
+                if (!Object.values(user_1.UserRole).includes(role)) {
+                    return { success: false, message: 'Invalid role specified' };
+                }
+                sanitized.role = role;
+            }
+            if (fields.full_name !== undefined) {
+                const fullName = fields.full_name?.trim();
+                if (!fullName) {
+                    return { success: false, message: 'Full name is required' };
+                }
+                sanitized.full_name = fullName;
+            }
+            if (fields.email !== undefined) {
+                const email = fields.email?.trim() || null;
+                sanitized.email = email;
+            }
+            if (fields.is_active !== undefined) {
+                sanitized.is_active = fields.is_active;
+            }
+            const keys = Object.keys(sanitized);
+            if (keys.length === 0) {
+                return { success: true, message: 'No changes provided' };
+            }
+            const request = pool.request().input('userId', localDatabase_1.sql.Int, userId);
+            const sets = [];
+            if (sanitized.username !== undefined) {
+                request.input('username', localDatabase_1.sql.VarChar, sanitized.username);
+                sets.push('username = @username');
+            }
+            if (sanitized.employee_code !== undefined) {
+                request.input('employee_code', localDatabase_1.sql.VarChar, sanitized.employee_code);
+                sets.push('employee_code = @employee_code');
+            }
+            if (sanitized.role !== undefined) {
+                request.input('role', localDatabase_1.sql.VarChar, sanitized.role);
+                sets.push('role = @role');
+            }
+            if (sanitized.full_name !== undefined) {
+                request.input('full_name', localDatabase_1.sql.NVarChar, sanitized.full_name);
+                sets.push('full_name = @full_name');
+            }
+            if (sanitized.email !== undefined) {
+                request.input('email', localDatabase_1.sql.VarChar, sanitized.email);
+                sets.push('email = @email');
+            }
+            if (sanitized.is_active !== undefined) {
+                request.input('is_active', localDatabase_1.sql.Bit, sanitized.is_active);
+                sets.push('is_active = @is_active');
+            }
+            const setClause = sets.join(', ');
+            await request.query(`UPDATE [dbo].[Users] SET ${setClause} WHERE id = @userId`);
+            return { success: true, message: 'User updated successfully' };
+        }
+        catch (error) {
+            console.error('Update user error:', error);
+            throw new Error('Failed to update user');
+        }
+    }
+    /**
+     * Update user password (Admin only)
+     */
+    async updateUserPassword(userId, newPassword) {
+        try {
+            const pool = await (0, localDatabase_1.getLocalConnection)();
+            const hashed = await bcryptjs_1.default.hash(newPassword, 10);
+            await pool.request()
+                .input('userId', localDatabase_1.sql.Int, userId)
+                .input('password', localDatabase_1.sql.VarChar, hashed)
+                .query('UPDATE [dbo].[Users] SET password = @password WHERE id = @userId');
+            return { success: true, message: 'Password updated successfully' };
+        }
+        catch (error) {
+            console.error('Update user password error:', error);
+            throw new Error('Failed to update user password');
         }
     }
 }

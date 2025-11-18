@@ -396,9 +396,11 @@ export class EmployeeProfileService {
     totalRecords: number; 
     totalCheckIns: number; 
     totalCheckOuts: number;
+    totalUnknown: number;
     totalEmployees: number;
     totalSites: number;
     lastPunchTime?: string;
+    firstPunchTime?: string;
   }> {
     const pool = await getLocalConnection();
 
@@ -408,9 +410,11 @@ export class EmployeeProfileService {
         totalRecords: 0, 
         totalCheckIns: 0, 
         totalCheckOuts: 0,
+        totalUnknown: 0,
         totalEmployees: 0,
         totalSites: 0,
-        lastPunchTime: undefined
+        lastPunchTime: undefined,
+        firstPunchTime: undefined
       };
     }
 
@@ -444,9 +448,11 @@ export class EmployeeProfileService {
         COUNT(*) AS totalRecords,
         SUM(CASE WHEN attendance.in_out_mode = 0 THEN 1 ELSE 0 END) AS totalCheckIns,
         SUM(CASE WHEN attendance.in_out_mode = 1 THEN 1 ELSE 0 END) AS totalCheckOuts,
-        COUNT(DISTINCT attendance.employee_code) AS totalEmployees,
+        SUM(CASE WHEN attendance.in_out_mode IS NULL OR attendance.in_out_mode NOT IN (0, 1) THEN 1 ELSE 0 END) AS totalUnknown,
+        COUNT(DISTINCT attendance.employee_code) AS totalEmployeesWithAttendance,
         COUNT(DISTINCT attendance.clock_description) AS totalSites,
-        MAX(attendance.punch_time) AS lastPunchTime
+        MAX(attendance.punch_time) AS lastPunchTime,
+        MIN(attendance.punch_time) AS firstPunchTime
       FROM dbo.SyncedAttendance AS attendance
       ${whereClause}
     `;
@@ -454,13 +460,24 @@ export class EmployeeProfileService {
     const result = await request.query(query);
     const row = result.recordset[0];
 
+    // Get total count of all users (not just those with attendance records)
+    const totalUsersQuery = `
+      SELECT COUNT(*) AS totalUsers
+      FROM dbo.Users
+      WHERE employee_code IS NOT NULL
+    `;
+    const totalUsersResult = await pool.request().query(totalUsersQuery);
+    const totalUsers = totalUsersResult.recordset[0]?.totalUsers || 0;
+
     return {
       totalRecords: row?.totalRecords || 0,
       totalCheckIns: row?.totalCheckIns || 0,
       totalCheckOuts: row?.totalCheckOuts || 0,
-      totalEmployees: row?.totalEmployees || 0,
+      totalUnknown: row?.totalUnknown || 0,
+      totalEmployees: totalUsers, // Use total users count instead of attendance-based count
       totalSites: row?.totalSites || 0,
       lastPunchTime: row?.lastPunchTime ? row.lastPunchTime.toISOString() : undefined,
+      firstPunchTime: row?.firstPunchTime ? row.firstPunchTime.toISOString() : undefined,
     };
   }
 

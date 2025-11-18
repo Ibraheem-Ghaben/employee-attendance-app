@@ -1,3 +1,69 @@
+/* Top Actions Bar */
+.dashboard-top-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 28px;
+  gap: 20px;
+}
+
+/* Sync Status - Top Version */
+.sync-status-top {
+  background: linear-gradient(135deg, rgba(0, 119, 182, 0.1), rgba(72, 202, 228, 0.1));
+  border: 1px solid rgba(0, 119, 182, 0.2);
+  border-radius: 12px;
+  padding: 12px 16px;
+  backdrop-filter: blur(10px);
+  flex-shrink: 0;
+  min-width: 200px;
+}
+
+/* Sync Status - Original Version (for other places) */
+.sync-status {
+  background: linear-gradient(135deg, rgba(0, 119, 182, 0.1), rgba(72, 202, 228, 0.1));
+  border: 1px solid rgba(0, 119, 182, 0.2);
+  border-radius: 12px;
+  padding: 16px 20px;
+  margin: 20px 28px;
+  backdrop-filter: blur(10px);
+}
+
+.sync-status-content {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.sync-icon {
+  font-size: 18px;
+  animation: pulse 2s infinite;
+}
+
+.sync-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sync-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.sync-time {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--brand-primary);
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
 /* Main Layout with Sidebar */
 .dashboard-layout {
   display: flex;

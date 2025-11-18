@@ -148,6 +148,100 @@
   color: #666;
 }
 
+/* Modern MSS Signature Styles */
+.mss-signature {
+  margin-top: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+
+.signature-line {
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(72, 202, 228, 0.5), transparent);
+}
+
+.signature-content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: linear-gradient(135deg, rgba(72, 202, 228, 0.1), rgba(0, 119, 182, 0.1));
+  border-radius: 20px;
+  border: 1px solid rgba(72, 202, 228, 0.3);
+  backdrop-filter: blur(10px);
+  transition: all 0.3s ease;
+}
+
+.signature-content:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(72, 202, 228, 0.2);
+  background: linear-gradient(135deg, rgba(72, 202, 228, 0.15), rgba(0, 119, 182, 0.15));
+}
+
+.signature-icon {
+  font-size: 14px;
+  animation: pulse 2s infinite;
+}
+
+.signature-text {
+  font-size: 11px;
+  color: #666;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.signature-brand {
+  font-size: 12px;
+  color: #0077b6;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+}
+
+.signature-year {
+  font-size: 10px;
+  color: #48cae4;
+  font-weight: 600;
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.1); }
+}
+
+/* Responsive signature for small laptop screens */
+@media (max-width: 1200px) and (min-width: 1025px) {
+  .mss-signature {
+    margin-top: 15px;
+    gap: 8px;
+  }
+  
+  .signature-content {
+    padding: 6px 12px;
+    gap: 6px;
+  }
+  
+  .signature-icon {
+    font-size: 12px;
+  }
+  
+  .signature-text {
+    font-size: 10px;
+  }
+  
+  .signature-brand {
+    font-size: 11px;
+  }
+  
+  .signature-year {
+    font-size: 9px;
+  }
+}
+
 .demo-credentials span {
   background: linear-gradient(135deg, rgba(72, 202, 228, 0.1), rgba(0, 119, 182, 0.05));
   padding: 8px 12px;

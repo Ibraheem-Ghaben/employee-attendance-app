@@ -4,10 +4,10 @@
 }
 
 .profile-header {
-  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  background: linear-gradient(135deg, #1e3c72 0%, #2a5298 50%, #48cae4 100%);
+  box-shadow: 0 8px 25px rgba(30, 60, 114, 0.4);
   color: white;
   padding: 20px 30px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
 }
 
 .profile-content {
@@ -23,9 +23,9 @@
 
 .btn-filter {
   background: white;
-  color: #f5576c;
+  color: var(--brand-primary);
   padding: 12px 24px;
-  border: 2px solid #f5576c;
+  border: 2px solid var(--brand-primary);
   border-radius: 8px;
   font-size: 1em;
   font-weight: 600;
@@ -37,10 +37,10 @@
 }
 
 .btn-filter:hover {
-  background: #f5576c;
+  background: var(--brand-primary);
   color: white;
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(245, 87, 108, 0.3);
+  box-shadow: 0 4px 12px rgba(0, 119, 182, 0.3);
 }
 
 .filter-indicator {
@@ -97,7 +97,7 @@
 
 .filter-item input:focus {
   outline: none;
-  border-color: #f5576c;
+  border-color: var(--brand-primary);
 }
 
 .filter-actions {
@@ -133,7 +133,7 @@
 .attendance-card h2 {
   margin-bottom: 20px;
   color: #333;
-  border-bottom: 3px solid #f5576c;
+  border-bottom: 3px solid var(--brand-primary);
   padding-bottom: 10px;
 }
 
@@ -170,7 +170,7 @@
 .stat-box {
   text-align: center;
   padding: 20px;
-  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  background: linear-gradient(135deg, var(--brand-primary-dark) 0%, var(--brand-primary) 50%, var(--brand-accent) 100%);
   border-radius: 12px;
   color: white;
 }
@@ -238,7 +238,7 @@
 
 .profile-loading .loading-spinner {
   border: 4px solid #f3f3f3;
-  border-top: 4px solid #f5576c;
+  border-top: 4px solid var(--brand-primary);
   border-radius: 50%;
   width: 50px;
   height: 50px;
@@ -250,6 +250,57 @@
   100% { transform: rotate(360deg); }
 }
 
+/* Button styles */
+.btn-primary {
+  background: linear-gradient(135deg, var(--brand-primary) 0%, var(--brand-accent) 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 12px 24px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(0, 119, 182, 0.3);
+}
+
+.btn-secondary {
+  background: rgba(1, 73, 124, 0.14);
+  color: var(--brand-primary-dark);
+  border: 2px solid var(--brand-primary-dark);
+  border-radius: 8px;
+  padding: 12px 24px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.btn-secondary:hover {
+  background: var(--brand-primary-dark);
+  color: white;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(1, 73, 124, 0.3);
+}
+
+.btn-success {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 12px 24px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.btn-success:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(16, 185, 129, 0.3);
+}
+
 /* Status badges */
 .status-active {
   color: #10b981;
@@ -257,7 +308,7 @@
 }
 
 .status-inactive {
-  color: #ef4444;
+  color: #0369a1;
   font-weight: 600;
 }
 
